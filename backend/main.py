@@ -19,8 +19,9 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:8000",
-        "https://smart-health-analyzer.vercel.app"
+        "http://localhost:5173",
+        "https://smart-health-analyzer.vercel.app",
+        "*"
     ],
     allow_credentials=True,
     allow_methods=["*"],
