@@ -32,7 +32,7 @@ function AppRoutes() {
   const [apiStatus, setApiStatus] = useState('checking...')
 
   useEffect(() => {
-    axios.get('http://localhost:8000')
+    axios.get(import.meta.env.VITE_API_URL || 'http://localhost:8000')
       .then(res => setApiStatus(res.data.message))
       .catch(() => setApiStatus('backend offline'))
   }, [])

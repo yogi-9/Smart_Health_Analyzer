@@ -2,11 +2,10 @@ import axios from 'axios'
 import { supabase } from './lib/supabase'
 
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5173',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
   headers: { 'Content-Type': 'application/json' },
 })
 
-// Helper to get current user id
 export const getUserId = async () => {
   const { data: { session } } = await supabase.auth.getSession()
   return session?.user?.id ?? null
