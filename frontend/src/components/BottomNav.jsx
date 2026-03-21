@@ -39,6 +39,18 @@ export default function BottomNav() {
         </svg>
       )
     },
+
+    {
+      to: '/water',
+      label: 'Water',
+      icon: (active) => (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+      stroke={active ? '#2563eb' : '#9ca3af'} strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2C6 9 4 13.5 4 16a8 8 0 0016 0c0-2.5-2-7-8-14z"/>
+      </svg>
+      )
+      },
     {
       to: '/profile',
       label: 'Profile',

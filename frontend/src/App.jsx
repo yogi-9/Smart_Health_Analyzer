@@ -13,6 +13,7 @@ import Heart from './pages/Heart'
 import Results from './pages/Results'
 import History from './pages/History'
 import Profile from './pages/Profile'
+import Water from './pages/Water'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -31,11 +32,17 @@ function PublicRoute({ children }) {
 function AppRoutes() {
   const [apiStatus, setApiStatus] = useState('checking...')
 
-  useEffect(() => {
-    axios.get(import.meta.env.VITE_API_URL || 'http://localhost:8000')
-      .then(res => setApiStatus(res.data.message))
-      .catch(() => setApiStatus('backend offline'))
-  }, [])
+useEffect(() => {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+  axios.get(import.meta.env.VITE_API_URL || 'http://localhost:8000', {
+    signal: controller.signal
+  })
+    .then(res => setApiStatus(res.data.message))
+    .catch(() => setApiStatus('backend offline'))
+    .finally(() => clearTimeout(timeoutId))
+}, [])
 
   return (
     <div>
@@ -58,6 +65,7 @@ function AppRoutes() {
         <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
         <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/water" element={<ProtectedRoute><Water /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

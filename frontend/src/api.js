@@ -46,4 +46,18 @@ export const getMentalHistory = async (userId) => {
   return { data, error }
 }
 
+export const logWater = async (glasses) => {
+  const user_id = await getUserId()
+  if (!user_id) return null
+  return API.post('/water/log', { user_id, glasses })
+}
+
+export const getTodayWater = async (userId) => {
+  return API.get(`/water/today/${userId}`)
+}
+
+export const getWaterHistory = async (userId) => {
+  return API.get(`/water/history/${userId}`)
+}
+
 export default API

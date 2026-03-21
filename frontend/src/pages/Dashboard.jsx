@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getHealthHistory, getMentalHistory } from '../api'
+import { getHealthHistory, getMentalHistory, getTodayWater } from '../api'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer
@@ -14,17 +14,19 @@ export default function Dashboard() {
   const [healthHistory, setHealthHistory] = useState([])
   const [mentalHistory, setMentalHistory] = useState([])
   const [loading, setLoading] = useState(true)
+  const [todayWater, setTodayWater] = useState(null)
 
   useEffect(() => {
     if (!user) { navigate('/'); return }
     const fetchData = async () => {
-      const [h, m] = await Promise.all([
-        getHealthHistory(user.id),
-        getMentalHistory(user.id)
-      ])
-      setHealthHistory(h.data ?? [])
-      setMentalHistory(m.data ?? [])
-      setLoading(false)
+      const [h, m, w] = await Promise.all([
+      getHealthHistory(user.id),
+      getMentalHistory(user.id),
+      getTodayWater(user.id)
+])
+     setHealthHistory(h.data ?? [])
+     setMentalHistory(m.data ?? [])
+     setTodayWater(w.data ?? null)
     }
     fetchData()
   }, [user, navigate])
@@ -71,8 +73,21 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-400 text-sm">Loading your health data...</div>
+      <div className="min-h-screen bg-gray-50 pb-24">
+        <div className="bg-white border-b border-gray-100 px-6 py-4">
+          <div className="h-5 w-32 bg-gray-100 rounded-lg animate-pulse"/>
+          <div className="h-3 w-24 bg-gray-100 rounded-lg mt-2 animate-pulse"/>
+        </div>
+        <div className="max-w-2xl mx-auto px-6 py-6 space-y-5">
+          <div className="grid grid-cols-4 gap-3">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="bg-white border border-gray-100 rounded-2xl p-4 h-20 animate-pulse"/>
+            ))}
+          </div>
+          <div className="h-14 bg-blue-100 rounded-2xl animate-pulse"/>
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 h-40 animate-pulse"/>
+        </div>
+        <BottomNav />
       </div>
     )
   }
@@ -126,6 +141,42 @@ export default function Dashboard() {
             <p className="text-xs mt-0.5 opacity-60">risk</p>
           </div>
         </div>
+
+        {/* Water today widget */}
+        {todayWater && (
+          <div className="bg-white border border-gray-100 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-medium text-gray-900">Water today</h2>
+              <Link to="/water" className="text-xs text-blue-600 hover:underline">
+                Track
+              </Link>
+            </div>
+            <div className="flex items-center gap-4">
+              <div>
+                <div className="flex items-end gap-1">
+                  <span className="text-3xl font-semibold text-blue-600">
+                    {todayWater.glasses}
+                  </span>
+                  <span className="text-gray-400 text-sm mb-1">
+                    / {todayWater.goal}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {todayWater.message}
+                </p>
+              </div>
+              <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 rounded-full transition-all"
+                  style={{ width: `${todayWater.percentage}%` }}
+                />
+              </div>
+              <span className="text-xs font-medium text-gray-600 flex-shrink-0">
+                {todayWater.percentage}%
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Run analysis CTA */}
         <Link to="/analyze"

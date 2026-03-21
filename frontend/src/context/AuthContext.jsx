@@ -1,4 +1,3 @@
- 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -12,15 +11,26 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id)
-      else setLoading(false)
+      if (session?.user) {
+        fetchProfile(session.user.id)
+      } else {
+        setLoading(false)
+      }
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setUser(session?.user ?? null)
-        if (session?.user) await fetchProfile(session.user.id)
-        else {
+      async (event, session) => {
+        if (event === 'SIGNED_OUT') {
+          setUser(null)
+          setProfile(null)
+          setLoading(false)
+          return
+        }
+        if (session?.user) {
+          setUser(session.user)
+          fetchProfile(session.user.id)
+        } else {
+          setUser(null)
           setProfile(null)
           setLoading(false)
         }
@@ -30,13 +40,18 @@ export function AuthProvider({ children }) {
   }, [])
 
   const fetchProfile = async (userId) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    setProfile(data)
-    setLoading(false)
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      setProfile(data ?? null)
+    } catch (err) {
+      setProfile(null)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const signUp = async (email, password) => {
@@ -52,16 +67,10 @@ export function AuthProvider({ children }) {
   }
 
   const signOut = async () => {
-  try {
-    await supabase.auth.signOut()
-  } catch (err) {
-    console.error(err)
-  } finally {
     setUser(null)
     setProfile(null)
-    setLoading(false)
+    await supabase.auth.signOut()
   }
-}
 
   const updateProfile = async (updates) => {
     const { data, error } = await supabase
@@ -77,9 +86,10 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, profile, loading,
-      signUp, signIn, signOut, updateProfile, fetchProfile
+      signUp, signIn, signOut,
+      updateProfile, fetchProfile
     }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   )
 }

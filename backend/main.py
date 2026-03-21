@@ -9,6 +9,7 @@ load_dotenv()
 from routes_mental import router as mental_router
 from routes_diabetes import router as diabetes_router
 from routes_heart import router as heart_router
+from routes_water import router as water_router
 
 app = FastAPI(
     title="Smart Health Analyzer API",
@@ -32,6 +33,8 @@ app.add_middleware(
 app.include_router(mental_router)
 app.include_router(diabetes_router)
 app.include_router(heart_router)
+app.include_router(water_router)
+
 
 @app.get("/")
 def root():
