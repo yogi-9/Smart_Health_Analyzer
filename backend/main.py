@@ -20,8 +20,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        "https://smart-health-analyzer.vercel.app",  # update after Vercel deploy
-        "*"  # allow all for now, restrict after deployment
+        "https://smart-health-analyzer.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
