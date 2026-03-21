@@ -7,16 +7,27 @@ import Register from './pages/Register'
 import ProfileSetup from './pages/ProfileSetup'
 import Dashboard from './pages/Dashboard'
 import Analyze from './pages/Analyze'
+import MentalHealth from './pages/MentalHealth'
+import Diabetes from './pages/Diabetes'
+import Heart from './pages/Heart'
+import Results from './pages/Results'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
-  if (loading) return null
-  return user ? children : <Navigate to="/" replace />
+  if (loading) return <div className="min-h-screen bg-gray-50"/>
+  if (!user) return <Navigate to="/" replace />
+  return children
+}
+
+function PublicRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="min-h-screen bg-gray-50"/>
+  if (user) return <Navigate to="/dashboard" replace />
+  return children
 }
 
 function AppRoutes() {
   const [apiStatus, setApiStatus] = useState('checking...')
-  const { user, profile } = useAuth()
 
   useEffect(() => {
     axios.get('http://localhost:8000')
@@ -33,23 +44,17 @@ function AppRoutes() {
       }`}>
         API: {apiStatus}
       </div>
-
       <Routes>
-        <Route path="/" element={
-          user ? <Navigate to="/dashboard" replace /> : <Login />
-        } />
-        <Route path="/register" element={
-          user ? <Navigate to="/dashboard" replace /> : <Register />
-        } />
-        <Route path="/profile-setup" element={
-          <ProtectedRoute><ProfileSetup /></ProtectedRoute>
-        } />
-        <Route path="/dashboard" element={
-          <ProtectedRoute><Dashboard /></ProtectedRoute>
-        } />
-        <Route path="/analyze" element={
-          <ProtectedRoute><Analyze /></ProtectedRoute>
-        } />
+        <Route path="/" element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+        <Route path="/profile-setup" element={<ProtectedRoute><ProfileSetup /></ProtectedRoute>} />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/analyze" element={<ProtectedRoute><Analyze /></ProtectedRoute>} />
+        <Route path="/analyze/mental" element={<ProtectedRoute><MentalHealth /></ProtectedRoute>} />
+        <Route path="/analyze/diabetes" element={<ProtectedRoute><Diabetes /></ProtectedRoute>} />
+        <Route path="/analyze/heart" element={<ProtectedRoute><Heart /></ProtectedRoute>} />
+        <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
   )
