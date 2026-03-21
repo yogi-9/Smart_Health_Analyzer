@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import API from '../api'
+import { predictDiabetes } from '../api'
 
 export default function Diabetes() {
   const { profile } = useAuth()
@@ -41,7 +41,7 @@ export default function Diabetes() {
         diabetes_pedigree: parseFloat(form.diabetes_pedigree),
         age: parseInt(form.age)
       }
-      const res = await API.post('/diabetes/predict', payload)
+      const res = await predictDiabetes(payload)
       navigate('/results', {
         state: { type: 'diabetes', data: res.data }
       })

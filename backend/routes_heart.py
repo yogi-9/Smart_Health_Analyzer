@@ -1,25 +1,27 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import pandas as pd
 from models_loader import heart_model, heart_features
+from database import supabase_client
 
 router = APIRouter(prefix="/heart", tags=["Heart Disease"])
 
 class HeartInput(BaseModel):
-    age: int                # Age in years
-    sex: int                # 1=male, 0=female
-    cp: int                 # Chest pain type (0-3)
-    trestbps: int           # Resting blood pressure (mm Hg)
-    chol: int               # Serum cholesterol (mg/dL)
-    fbs: int                # Fasting blood sugar > 120 mg/dL (1=true, 0=false)
-    restecg: int            # Resting ECG results (0-2)
-    thalach: int            # Max heart rate achieved
-    exang: int              # Exercise induced angina (1=yes, 0=no)
-    oldpeak: float          # ST depression induced by exercise
-    slope: int              # Slope of peak exercise ST segment (0-2)
-    ca: int                 # Number of major vessels colored by fluoroscopy (0-3)
-    thal: int               # Thalassemia (0=normal, 1=fixed defect, 2=reversible)
+    age: int
+    sex: int
+    cp: int
+    trestbps: int
+    chol: int
+    fbs: int
+    restecg: int
+    thalach: int
+    exang: int
+    oldpeak: float
+    slope: int
+    ca: int
+    thal: int
+    user_id: Optional[str] = None
 
 class HeartResult(BaseModel):
     heart_disease_probability: float
@@ -27,43 +29,34 @@ class HeartResult(BaseModel):
     risk_score: float
     message: str
     tips: List[str]
+    saved: bool = False
 
 def get_heart_tips(risk_level, data):
     tips = []
-
     if data.chol > 240:
         tips.append("Your cholesterol is high — reduce saturated fats, fried food, and red meat")
-        tips.append("Eat more fiber-rich foods like oats, beans, and vegetables to lower cholesterol")
-
+        tips.append("Eat more fiber-rich foods like oats, beans, and vegetables")
     if data.trestbps > 140:
         tips.append("Your blood pressure is elevated — reduce salt, alcohol, and manage stress")
         tips.append("Monitor your blood pressure at home regularly")
-
     if data.fbs == 1:
         tips.append("High fasting blood sugar increases heart risk — manage your diabetes carefully")
-
     if data.exang == 1:
         tips.append("Exercise-induced chest pain needs medical evaluation — see a cardiologist")
-
     if risk_level == "High":
         tips.append("Get an ECG and echocardiogram done — early detection saves lives")
         tips.append("Avoid smoking completely — it doubles heart disease risk")
-    elif risk_level == "Medium":
-        tips.append("Aim for 150 minutes of moderate exercise per week for heart health")
-
     tips.extend([
         "Eat a heart-healthy diet rich in fruits, vegetables, and whole grains",
         "Manage stress through yoga, meditation, or deep breathing exercises",
         "Get 7-8 hours of quality sleep every night"
     ])
-
     return tips[:6]
 
 @router.post("/predict", response_model=HeartResult)
 def predict_heart_disease(data: HeartInput):
     if heart_model is None:
-        raise HTTPException(status_code=503,
-            detail="Heart disease model not loaded")
+        raise HTTPException(status_code=503, detail="Heart disease model not loaded")
 
     input_df = pd.DataFrame([[
         data.age, data.sex, data.cp, data.trestbps,
@@ -85,11 +78,39 @@ def predict_heart_disease(data: HeartInput):
         message = "Low heart disease risk. Keep up your heart-healthy lifestyle!"
 
     tips = get_heart_tips(risk_level, data)
+    saved = False
+
+    if data.user_id and supabase_client:
+        try:
+            record = supabase_client.table('health_records').insert({
+                'user_id': data.user_id,
+                'systolic_bp': data.trestbps,
+                'diastolic_bp': 80,
+                'cholesterol': data.chol,
+                'glucose': 100,
+                'smoking': False,
+                'bmi': 25.0
+            }).execute()
+
+            record_id = record.data[0]['id']
+
+            supabase_client.table('predictions').insert({
+                'user_id': data.user_id,
+                'record_id': record_id,
+                'risk_level': risk_level,
+                'risk_score': risk_score,
+                'message': message,
+                'tips': tips
+            }).execute()
+            saved = True
+        except Exception as e:
+            print(f"Failed to save heart record: {e}")
 
     return HeartResult(
         heart_disease_probability=round(probability * 100, 1),
         risk_level=risk_level,
         risk_score=risk_score,
         message=message,
-        tips=tips
+        tips=tips,
+        saved=saved
     )

@@ -1,24 +1,33 @@
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { useNavigate, Link } from 'react-router-dom'
+import { getHealthHistory, getMentalHistory } from '../api'
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer
+} from 'recharts'
+import BottomNav from '../components/BottomNav'
 
 export default function Dashboard() {
-  const { user, profile, signOut } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
+  const [healthHistory, setHealthHistory] = useState([])
+  const [mentalHistory, setMentalHistory] = useState([])
+  const [loading, setLoading] = useState(true)
 
- const handleLogout = async () => {
-  try {
-    await signOut()
-  } catch (err) {
-    console.error('Logout error:', err)
-  } finally {
-    navigate('/', { replace: true })
-  }
-}
-
-if (!user) {
-  navigate('/', { replace: true })
-  return null
-}
+  useEffect(() => {
+    if (!user) { navigate('/'); return }
+    const fetchData = async () => {
+      const [h, m] = await Promise.all([
+        getHealthHistory(user.id),
+        getMentalHistory(user.id)
+      ])
+      setHealthHistory(h.data ?? [])
+      setMentalHistory(m.data ?? [])
+      setLoading(false)
+    }
+    fetchData()
+  }, [user, navigate])
 
   const bmi = profile?.height && profile?.weight
     ? (profile.weight / ((profile.height / 100) ** 2)).toFixed(1)
@@ -31,76 +40,242 @@ if (!user) {
       : 'Obese'
     : null
 
+  const avgScore = healthHistory.length > 0
+    ? Math.round(healthHistory.reduce((s, r) => s + r.risk_score, 0) / healthHistory.length)
+    : null
+
+  const lastRecord = healthHistory[0] ?? null
+  const lastMental = mentalHistory[0] ?? null
+
+  const riskColors = {
+    Low: 'text-green-600 bg-green-50',
+    Medium: 'text-yellow-600 bg-yellow-50',
+    High: 'text-red-600 bg-red-50',
+  }
+
+  // Chart data — last 7 health records reversed (oldest first)
+  const chartData = [...healthHistory].reverse().slice(-7).map(r => ({
+    date: new Date(r.created_at).toLocaleDateString('en-IN', {
+      day: 'numeric', month: 'short'
+    }),
+    score: r.risk_score
+  }))
+
+  // Mental chart data
+  const mentalChartData = [...mentalHistory].reverse().slice(-7).map(r => ({
+    date: new Date(r.created_at).toLocaleDateString('en-IN', {
+      day: 'numeric', month: 'short'
+    }),
+    score: r.mental_health_score
+  }))
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-400 text-sm">Loading your health data...</div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg"/>
-          <h1 className="text-lg font-semibold text-gray-900">Smart Health</h1>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-500">{profile?.full_name || user?.email}</span>
-          <button onClick={handleLogout}
-            className="text-sm text-red-500 hover:text-red-700 font-medium">
-            Sign out
-          </button>
+    <div className="min-h-screen bg-gray-50 pb-24">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-100 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-semibold text-gray-900">
+              Hello, {profile?.full_name?.split(' ')[0] || 'there'}
+            </h1>
+            <p className="text-sm text-gray-500 mt-0.5">Your health overview</p>
+          </div>
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center
+            justify-center text-white text-sm font-semibold">
+            {profile?.full_name?.[0]?.toUpperCase() || 'U'}
+          </div>
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-6 py-10">
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-900">
-            Hello, {profile?.full_name?.split(' ')[0] || 'there'}
-          </h2>
-          <p className="text-gray-500 text-sm mt-1">Here's your health overview</p>
+      <div className="max-w-2xl mx-auto px-6 py-6 space-y-5">
+
+        {/* Quick stats */}
+        <div className="grid grid-cols-4 gap-3">
+          <div className="bg-white border border-gray-100 rounded-2xl p-4 col-span-1">
+            <p className="text-xs text-gray-500 mb-1">BMI</p>
+            <p className="text-xl font-semibold text-gray-900">{bmi ?? '—'}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{bmiCategory ?? 'No data'}</p>
+          </div>
+          <div className="bg-white border border-gray-100 rounded-2xl p-4 col-span-1">
+            <p className="text-xs text-gray-500 mb-1">Checks</p>
+            <p className="text-xl font-semibold text-gray-900">
+              {healthHistory.length + mentalHistory.length}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">total</p>
+          </div>
+          <div className="bg-white border border-gray-100 rounded-2xl p-4 col-span-1">
+            <p className="text-xs text-gray-500 mb-1">Avg risk</p>
+            <p className="text-xl font-semibold text-gray-900">{avgScore ?? '—'}</p>
+            <p className="text-xs text-gray-400 mt-0.5">/ 100</p>
+          </div>
+          <div className={`rounded-2xl p-4 col-span-1 ${
+            lastRecord ? riskColors[lastRecord.risk_level] : 'bg-white border border-gray-100'
+          }`}>
+            <p className="text-xs mb-1 opacity-70">Last</p>
+            <p className="text-xl font-semibold">
+              {lastRecord?.risk_level ?? '—'}
+            </p>
+            <p className="text-xs mt-0.5 opacity-60">risk</p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white border border-gray-100 rounded-2xl p-5">
-            <p className="text-xs font-medium text-gray-500 mb-1">BMI</p>
-            <p className="text-2xl font-semibold text-gray-900">{bmi ?? '—'}</p>
-            <p className="text-xs text-gray-400 mt-1">{bmiCategory ?? 'No data'}</p>
-          </div>
-          <div className="bg-white border border-gray-100 rounded-2xl p-5">
-            <p className="text-xs font-medium text-gray-500 mb-1">Last score</p>
-            <p className="text-2xl font-semibold text-gray-900">—</p>
-            <p className="text-xs text-gray-400 mt-1">No analysis yet</p>
-          </div>
-          <div className="bg-white border border-gray-100 rounded-2xl p-5">
-            <p className="text-xs font-medium text-gray-500 mb-1">Risk level</p>
-            <p className="text-2xl font-semibold text-gray-900">—</p>
-            <p className="text-xs text-gray-400 mt-1">No analysis yet</p>
-          </div>
-        </div>
-
+        {/* Run analysis CTA */}
         <Link to="/analyze"
-          className="block w-full bg-blue-600 text-white text-center py-4 rounded-2xl
-            font-medium hover:bg-blue-700 transition-colors mb-4">
+          className="block bg-blue-600 text-white text-center py-4 rounded-2xl
+            font-medium hover:bg-blue-700 transition-colors">
           Run health analysis
         </Link>
 
-        <div className="bg-white border border-gray-100 rounded-2xl p-5">
-          <h3 className="text-sm font-medium text-gray-900 mb-4">Your profile</h3>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p className="text-gray-500">Age</p>
-              <p className="font-medium text-gray-900">{profile?.age ?? '—'}</p>
+        {/* Risk score trend chart */}
+        {chartData.length > 1 && (
+          <div className="bg-white border border-gray-100 rounded-2xl p-5">
+            <h2 className="text-sm font-medium text-gray-900 mb-4">
+              Risk score trend
+            </h2>
+            <ResponsiveContainer width="100%" height={160}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6"/>
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9ca3af' }}
+                  axisLine={false} tickLine={false}/>
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#9ca3af' }}
+                  axisLine={false} tickLine={false}/>
+                <Tooltip
+                  contentStyle={{
+                    border: '1px solid #f3f4f6',
+                    borderRadius: '12px',
+                    fontSize: '12px'
+                  }}/>
+                <Line type="monotone" dataKey="score" stroke="#2563eb"
+                  strokeWidth={2} dot={{ fill: '#2563eb', r: 4 }}
+                  activeDot={{ r: 6 }}/>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Mental health trend chart */}
+        {mentalChartData.length > 1 && (
+          <div className="bg-white border border-gray-100 rounded-2xl p-5">
+            <h2 className="text-sm font-medium text-gray-900 mb-4">
+              Mental health trend
+            </h2>
+            <ResponsiveContainer width="100%" height={160}>
+              <LineChart data={mentalChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6"/>
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9ca3af' }}
+                  axisLine={false} tickLine={false}/>
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#9ca3af' }}
+                  axisLine={false} tickLine={false}/>
+                <Tooltip
+                  contentStyle={{
+                    border: '1px solid #f3f4f6',
+                    borderRadius: '12px',
+                    fontSize: '12px'
+                  }}/>
+                <Line type="monotone" dataKey="score" stroke="#8b5cf6"
+                  strokeWidth={2} dot={{ fill: '#8b5cf6', r: 4 }}
+                  activeDot={{ r: 6 }}/>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Last 3 predictions */}
+        {healthHistory.length > 0 && (
+          <div className="bg-white border border-gray-100 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-medium text-gray-900">Recent analyses</h2>
+              <Link to="/history"
+                className="text-xs text-blue-600 hover:underline">
+                See all
+              </Link>
             </div>
-            <div>
-              <p className="text-gray-500">Gender</p>
-              <p className="font-medium text-gray-900 capitalize">{profile?.gender ?? '—'}</p>
-            </div>
-            <div>
-              <p className="text-gray-500">Height</p>
-              <p className="font-medium text-gray-900">{profile?.height ? `${profile.height} cm` : '—'}</p>
-            </div>
-            <div>
-              <p className="text-gray-500">Weight</p>
-              <p className="font-medium text-gray-900">{profile?.weight ? `${profile.weight} kg` : '—'}</p>
+            <div className="space-y-3">
+              {healthHistory.slice(0, 3).map(item => (
+                <div key={item.id}
+                  className="flex items-center justify-between py-3
+                    border-b border-gray-50 last:border-0">
+                  <div>
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full
+                      ${riskColors[item.risk_level]}`}>
+                      {item.risk_level}
+                    </span>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {new Date(item.created_at).toLocaleDateString('en-IN', {
+                        day: 'numeric', month: 'short'
+                      })}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-semibold text-gray-900">
+                      {item.risk_score}
+                    </p>
+                    <p className="text-xs text-gray-400">/ 100</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Last mental health check */}
+        {lastMental && (
+          <div className="bg-white border border-gray-100 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-medium text-gray-900">
+                Last mental health check
+              </h2>
+              <Link to="/history"
+                className="text-xs text-blue-600 hover:underline">
+                See all
+              </Link>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <p className="text-xs text-gray-500">Score</p>
+                <p className="text-xl font-semibold text-gray-900">
+                  {lastMental.mental_health_score}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Depression</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {lastMental.depression_level}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Anxiety</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {lastMental.anxiety_level}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {healthHistory.length === 0 && mentalHistory.length === 0 && (
+          <div className="bg-white border border-gray-100 rounded-2xl p-8 text-center">
+            <p className="text-gray-400 text-sm mb-4">
+              No health data yet. Run your first analysis!
+            </p>
+            <Link to="/analyze"
+              className="text-blue-600 text-sm font-medium hover:underline">
+              Start now
+            </Link>
+          </div>
+        )}
       </div>
+
+      <BottomNav />
     </div>
   )
 }

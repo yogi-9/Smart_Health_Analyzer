@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import API from '../api'
+import { analyzeMentalHealth } from '../api'
 
 const PHQ9_QUESTIONS = [
   "Little interest or pleasure in doing things",
@@ -42,27 +42,25 @@ export default function MentalHealth() {
                       gad7.every(v => v !== null)
 
   const handleSubmit = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const payload = {
-        phq9_q1: phq9[0], phq9_q2: phq9[1], phq9_q3: phq9[2],
-        phq9_q4: phq9[3], phq9_q5: phq9[4], phq9_q6: phq9[5],
-        phq9_q7: phq9[6], phq9_q8: phq9[7], phq9_q9: phq9[8],
-        gad7_q1: gad7[0], gad7_q2: gad7[1], gad7_q3: gad7[2],
-        gad7_q4: gad7[3], gad7_q5: gad7[4], gad7_q6: gad7[5],
-        gad7_q7: gad7[6]
-      }
-      const res = await API.post('/mental/analyze', payload)
-      navigate('/results', {
-        state: { type: 'mental', data: res.data }
-      })
-    } catch (err) {
-      setError('Could not connect to backend. Is it running?')
-    } finally {
-      setLoading(false)
+  setLoading(true)
+  setError(null)
+  try {
+    const payload = {
+      phq9_q1: phq9[0], phq9_q2: phq9[1], phq9_q3: phq9[2],
+      phq9_q4: phq9[3], phq9_q5: phq9[4], phq9_q6: phq9[5],
+      phq9_q7: phq9[6], phq9_q8: phq9[7], phq9_q9: phq9[8],
+      gad7_q1: gad7[0], gad7_q2: gad7[1], gad7_q3: gad7[2],
+      gad7_q4: gad7[3], gad7_q5: gad7[4], gad7_q6: gad7[5],
+      gad7_q7: gad7[6]
     }
+    const res = await analyzeMentalHealth(payload)
+    navigate('/results', { state: { type: 'mental', data: res.data } })
+  } catch (err) {
+    setError('Could not connect to backend. Is it running?')
+  } finally {
+    setLoading(false)
   }
+}
 
   return (
     <div className="min-h-screen bg-gray-50 pb-16">

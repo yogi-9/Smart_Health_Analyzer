@@ -11,6 +11,8 @@ import MentalHealth from './pages/MentalHealth'
 import Diabetes from './pages/Diabetes'
 import Heart from './pages/Heart'
 import Results from './pages/Results'
+import History from './pages/History'
+import Profile from './pages/Profile'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -54,6 +56,8 @@ function AppRoutes() {
         <Route path="/analyze/diabetes" element={<ProtectedRoute><Diabetes /></ProtectedRoute>} />
         <Route path="/analyze/heart" element={<ProtectedRoute><Heart /></ProtectedRoute>} />
         <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
+        <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

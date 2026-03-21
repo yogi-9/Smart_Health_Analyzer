@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import API from '../api'
+import { predictHeart } from '../api'
 
 export default function Heart() {
   const { profile } = useAuth()
@@ -39,7 +39,7 @@ export default function Heart() {
           [k, k === 'oldpeak' ? parseFloat(v) : parseInt(v)]
         )
       )
-      const res = await API.post('/heart/predict', payload)
+      const res = await predictHeart(payload)
       navigate('/results', {
         state: { type: 'heart', data: res.data }
       })
