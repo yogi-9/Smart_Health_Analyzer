@@ -68,11 +68,19 @@ export const logMeal = async (data) => {
 
 export const getNutritionLogs = async (date = null) => {
   const user_id = await getUserId()
-  return API.get(`/nutrition/logs?user_id=${user_id}${date ? `&log_date=${date}` : ''}`)
+  if (!user_id) {
+    throw new Error('User not authenticated')
+  }
+  const params = new URLSearchParams({ user_id })
+  if (date) params.append('log_date', date)
+  return API.get(`/nutrition/logs?${params.toString()}`)
 }
 
 export const getNutritionSummary = async (date = null) => {
   const user_id = await getUserId()
+  if (!user_id) {
+    throw new Error('User not authenticated')
+  }
   return API.get(`/nutrition/summary?user_id=${user_id}${date ? `&log_date=${date}` : ''}`)
 }
 

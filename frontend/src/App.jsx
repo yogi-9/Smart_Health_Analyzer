@@ -13,7 +13,7 @@ const mealColor = {
   snack: 'bg-purple-50 text-purple-700',
 }
 
-export default function Nutrition() {
+export default function App() {  
   const { user, loading } = useAuth()
   const navigate = useNavigate()
 

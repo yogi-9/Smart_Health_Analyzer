@@ -36,7 +36,11 @@ export function AuthProvider({ children }) {
         }
       }
     )
-    return () => subscription.unsubscribe()
+    return () => {
+  if (subscription?.unsubscribe) {
+    subscription.unsubscribe()
+  }
+}
   }, [])
 
   const fetchProfile = async (userId) => {
@@ -46,6 +50,8 @@ export function AuthProvider({ children }) {
         .select('*')
         .eq('id', userId)
         .single()
+        .then(res => res.data)  
+        .catch(() => null)  // Return null if not found
       setProfile(data ?? null)
     } catch (err) {
       setProfile(null)

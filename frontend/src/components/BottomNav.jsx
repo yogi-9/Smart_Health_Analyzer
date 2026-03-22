@@ -70,8 +70,15 @@ export default function BottomNav() {
       border-gray-100 px-2 py-2 z-50">
       <div className="max-w-2xl mx-auto flex items-center justify-around">
         {tabs.map(tab => {
-          const active = pathname === tab.to ||
-            (tab.to === '/analyze' && pathname.startsWith('/analyze'))
+          const activeRoutes = {
+          '/dashboard': ['/dashboard'],
+          '/analyze': ['/analyze', '/analyze/mental', '/analyze/diabetes', '/analyze/heart'],
+          '/history': ['/history'],
+          '/water': ['/water'],
+          '/profile': ['/profile']
+        }
+
+const active = activeRoutes[tab.to]?.includes(pathname) || pathname === tab.to
           return (
             <Link key={tab.to} to={tab.to}
               className="flex flex-col items-center gap-1 px-4 py-1 rounded-xl
