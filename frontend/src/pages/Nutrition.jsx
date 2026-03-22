@@ -1,6 +1,6 @@
 // frontend/src/pages/Nutrition.jsx
 import { useState, useEffect } from 'react'
-import { logMeal, getNutritionLogs, getNutritionSummary } from '../api/nutrition'
+import { logMeal, getNutritionLogs, getNutritionSummary } from '../api'
 import { useNavigate } from 'react-router-dom'
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack']
@@ -36,8 +36,8 @@ export default function Nutrition() {
     if (!token) return navigate('/')
     try {
       const [logsRes, summaryRes] = await Promise.all([
-        getNutritionLogs(token),
-        getNutritionSummary(token),
+        getNutritionLogs(),
+        getNutritionSummary(),
       ])
       setLogs(logsRes.data.data || [])
       setSummary(summaryRes.data.data?.[0] || null)
@@ -53,7 +53,7 @@ export default function Nutrition() {
     if (!token || !form.food_name) return
     setLoading(true)
     try {
-      await logMeal(token, {
+      await logMeal({
         ...form,
         calories: Number(form.calories) || 0,
         protein: Number(form.protein) || 0,

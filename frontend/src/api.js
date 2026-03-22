@@ -60,4 +60,31 @@ export const getWaterHistory = async (userId) => {
   return API.get(`/water/history/${userId}`)
 }
 
+// ✅ NEW - Nutrition (same pattern as existing functions)
+export const logMeal = async (data) => {
+  const user_id = await getUserId()
+  return API.post('/nutrition/log', { ...data, user_id })
+}
+
+export const getNutritionLogs = async (date = null) => {
+  const user_id = await getUserId()
+  return API.get(`/nutrition/logs?user_id=${user_id}${date ? `&log_date=${date}` : ''}`)
+}
+
+export const getNutritionSummary = async (date = null) => {
+  const user_id = await getUserId()
+  return API.get(`/nutrition/summary?user_id=${user_id}${date ? `&log_date=${date}` : ''}`)
+}
+
+// ✅ NEW - Streaks (same pattern as existing functions)
+export const getStreaks = async () => {
+  const user_id = await getUserId()
+  return API.get(`/streaks/?user_id=${user_id}`)
+}
+
+export const recordLoginStreak = async () => {
+  const user_id = await getUserId()
+  return API.post('/streaks/login', { user_id })
+}
+
 export default API
