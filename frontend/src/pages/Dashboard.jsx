@@ -189,6 +189,13 @@ export default function Dashboard() {
           Run health analysis
         </Link>
 
+        {/* Nutrition CTA */}
+        <Link to="/nutrition"
+        className="block bg-green-600 text-white text-center py-4 rounded-2xl
+        font-medium hover:bg-green-700 transition-colors">
+        Track Nutrition
+        </Link>
+
         {/* Risk score trend chart */}
         {chartData.length > 1 && (
           <div className="bg-white border border-gray-100 rounded-2xl p-5">
