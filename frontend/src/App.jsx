@@ -3,6 +3,11 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { logMeal, getNutritionLogs, getNutritionSummary } from './api'
 import BottomNav from './components/BottomNav'
+import AppRoutes from './router'
+
+export default function App() {
+  return <AppRoutes />
+}
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack']
 
