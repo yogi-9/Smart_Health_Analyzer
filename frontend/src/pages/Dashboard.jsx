@@ -9,15 +9,15 @@ import {
 import BottomNav from '../components/BottomNav'
 
 export default function Dashboard() {
-  const { user, profile } = useAuth()
+  const { user, profile, loading } = useAuth()
   const navigate = useNavigate()
   const [healthHistory, setHealthHistory] = useState([])
   const [mentalHistory, setMentalHistory] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
   const [todayWater, setTodayWater] = useState(null)
 
   useEffect(() => {
-    if (!user) { navigate('/'); return }
+    if (!loading && !user) { navigate('/'); return }
     const fetchData = async () => {
       const [h, m, w] = await Promise.all([
       getHealthHistory(user.id),
@@ -30,6 +30,10 @@ export default function Dashboard() {
     }
     fetchData()
   }, [user, navigate])
+
+    if (loading) return (
+    <div className="min-h-screen bg-gray-50"/>
+  )
 
   const bmi = profile?.height && profile?.weight
     ? (profile.weight / ((profile.height / 100) ** 2)).toFixed(1)
