@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useAuth } from '../context/AuthContex.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import { logMeal, getNutritionLogs, getNutritionSummary } from '../api'
 import BottomNav from '../components/BottomNav.jsx'
 
