@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext.jsx'
+import { useAuth } from './context/AuthContext'
 import { logMeal, getNutritionLogs, getNutritionSummary } from '../api.js'
-import BottomNav from '../components/BottomNav.jsx'
+import BottomNav from './components/BottomNav'
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack']
 
