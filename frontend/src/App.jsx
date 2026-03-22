@@ -14,6 +14,7 @@ import Results from './pages/Results'
 import History from './pages/History'
 import Profile from './pages/Profile'
 import Water from './pages/Water'
+import Nutrition from './pages/Nutrition'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -66,6 +67,7 @@ useEffect(() => {
         <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/water" element={<ProtectedRoute><Water /></ProtectedRoute>} />
+        <Route path="/nutrition" element={<Nutrition />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
