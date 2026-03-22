@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { AuthProvider, useAuth } from './context/AuthContext'  
+import { useAuth } from '../context/AuthContext'
 import { logMeal, getNutritionLogs, getNutritionSummary } from '../api'
 import BottomNav from '../components/BottomNav'
 
@@ -112,8 +112,7 @@ export default function Nutrition() {
             <h1 className="text-lg font-semibold text-gray-900">Nutrition</h1>
             <p className="text-sm text-gray-500 mt-0.5">Track your meals today</p>
           </div>
-          <Link to="/dashboard"
-            className="text-xs text-blue-600 hover:underline">
+          <Link to="/dashboard" className="text-xs text-blue-600 hover:underline">
             Dashboard
           </Link>
         </div>
@@ -134,8 +133,7 @@ export default function Nutrition() {
                 className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
                 <p className="text-xs text-gray-400 mb-1">{label}</p>
                 <p className="text-lg font-semibold text-gray-900">
-                  {value}
-                  <span className="text-xs text-gray-400"> {unit}</span>
+                  {value}<span className="text-xs text-gray-400"> {unit}</span>
                 </p>
               </div>
             ))}
@@ -156,14 +154,12 @@ export default function Nutrition() {
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <h2 className="text-sm font-medium text-gray-900 mb-4">Log a Meal</h2>
 
-          {/* Meal Type Selector */}
           <div className="flex gap-2 mb-4">
             {MEAL_TYPES.map(type => (
               <button key={type}
                 onClick={() => setForm({ ...form, meal_type: type })}
                 className={`flex-1 py-2 rounded-xl text-xs font-medium capitalize
-                  transition-colors
-                  ${form.meal_type === type
+                  transition-colors ${form.meal_type === type
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
                 {type}
@@ -171,7 +167,6 @@ export default function Nutrition() {
             ))}
           </div>
 
-          {/* Food Name */}
           <input
             placeholder="Food name (e.g. Oatmeal with banana)"
             value={form.food_name}
@@ -180,7 +175,6 @@ export default function Nutrition() {
               text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
           />
 
-          {/* Macros Grid */}
           <div className="grid grid-cols-2 gap-3 mb-3">
             {[
               { key: 'calories', placeholder: 'Calories (kcal)' },
@@ -199,7 +193,6 @@ export default function Nutrition() {
             ))}
           </div>
 
-          {/* Meal Time */}
           <input type="time"
             value={form.meal_time}
             onChange={e => setForm({ ...form, meal_time: e.target.value })}
@@ -207,7 +200,6 @@ export default function Nutrition() {
               text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
           />
 
-          {/* Submit */}
           <button
             onClick={handleSubmit}
             disabled={submitting || !form.food_name.trim()}
@@ -219,9 +211,7 @@ export default function Nutrition() {
 
         {/* Today's Logs */}
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
-          <h2 className="text-sm font-medium text-gray-900 mb-4">
-            Today's Meals
-          </h2>
+          <h2 className="text-sm font-medium text-gray-900 mb-4">Today's Meals</h2>
           {logs.length === 0 ? (
             <p className="text-gray-400 text-sm text-center py-6">
               No meals logged today
@@ -241,15 +231,11 @@ export default function Nutrition() {
                       {log.food_name}
                     </span>
                     {log.meal_time && (
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {log.meal_time}
-                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">{log.meal_time}</p>
                     )}
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-semibold text-gray-900">
-                      {log.calories}
-                    </p>
+                    <p className="text-lg font-semibold text-gray-900">{log.calories}</p>
                     <p className="text-xs text-gray-400">kcal</p>
                   </div>
                 </div>
