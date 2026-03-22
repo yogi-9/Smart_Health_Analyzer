@@ -190,14 +190,52 @@ const VALIDATION = {
     gender: { values: [0, 1], label: 'Gender' },
   },
   2: {
-    systolic_bp: { min: 70, max: 250, label: 'Systolic BP' },
-    diastolic_bp: { min: 40, max: 150, label: 'Diastolic BP' },
-    cholesterol: { min: 100, max: 500, label: 'Cholesterol' },
-    glucose: { min: 50, max: 500, label: 'Glucose' },
-  },
-  3: {
     smoking: { values: [0, 1], label: 'Smoking' },
+    exercise: { values: [0, 1, 2], label: 'Exercise' },
+    diet: { values: [0, 1, 2], label: 'Diet' },
+    stress: { values: [0, 1, 2], label: 'Stress' },
   },
+}
+
+// Auto-estimate medical values from lifestyle for the backend
+function estimateMedicalValues(formData) {
+  const age = Number(formData.age)
+  const bmi = Number(formData.weight) / ((Number(formData.height) / 100) ** 2)
+  const smokes = Number(formData.smoking) === 1
+  const exercise = Number(formData.exercise)   // 0=none, 1=some, 2=regular
+  const diet = Number(formData.diet)           // 0=unhealthy, 1=okay, 2=healthy
+  const stress = Number(formData.stress)       // 0=low, 1=moderate, 2=high
+
+  // Base BP from age
+  let systolic = 110 + (age - 25) * 0.5
+  let diastolic = 70 + (age - 25) * 0.3
+  // Adjust for lifestyle
+  if (smokes) { systolic += 10; diastolic += 5 }
+  if (bmi > 30) { systolic += 8; diastolic += 4 }
+  if (exercise === 0) { systolic += 5; diastolic += 3 }
+  if (exercise === 2) { systolic -= 5; diastolic -= 3 }
+  if (stress === 2) { systolic += 8; diastolic += 5 }
+
+  // Cholesterol from age + diet
+  let cholesterol = 170 + (age - 25) * 0.8
+  if (diet === 0) cholesterol += 30
+  if (diet === 2) cholesterol -= 15
+  if (smokes) cholesterol += 15
+  if (bmi > 30) cholesterol += 20
+
+  // Glucose from lifestyle
+  let glucose = 85 + (age - 25) * 0.3
+  if (diet === 0) glucose += 15
+  if (exercise === 0) glucose += 10
+  if (bmi > 30) glucose += 15
+  if (stress === 2) glucose += 8
+
+  return {
+    systolic_bp: Math.round(Math.max(90, Math.min(200, systolic))),
+    diastolic_bp: Math.round(Math.max(55, Math.min(120, diastolic))),
+    cholesterol: Math.round(Math.max(120, Math.min(350, cholesterol))),
+    glucose: Math.round(Math.max(65, Math.min(300, glucose))),
+  }
 }
 
 function validateStep(step, data) {
@@ -219,8 +257,7 @@ function validateStep(step, data) {
 // ─── Step Headers ───────────────────────────────────────────────────
 const STEP_META = [
   { title: 'Tell us about you', desc: 'Basic personal information' },
-  { title: 'Cardiovascular markers', desc: 'Blood pressure, cholesterol & glucose' },
-  { title: 'Lifestyle factors', desc: 'Habits that affect your health' },
+  { title: 'Your daily habits', desc: 'Simple questions about your lifestyle' },
 ]
 
 // ─── Result Messages ────────────────────────────────────────────────
@@ -240,11 +277,10 @@ export default function Analyze() {
     gender: profile?.gender ?? '',
     height: profile?.height || '',
     weight: profile?.weight || '',
-    systolic_bp: '',
-    diastolic_bp: '',
-    cholesterol: '',
-    glucose: '',
     smoking: '',
+    exercise: '',
+    diet: '',
+    stress: '',
   })
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
@@ -286,23 +322,25 @@ export default function Analyze() {
     setLoading(true)
     setApiError(null)
     try {
-      // Build payload with correct types
+      // Estimate medical values from lifestyle answers
+      const estimated = estimateMedicalValues(formData)
+      const bmi = Number((Number(formData.weight) / ((Number(formData.height) / 100) ** 2)).toFixed(1))
+      // Map to the backend's /diabetes/predict endpoint fields
       const payload = {
+        pregnancies: 0,
+        glucose: estimated.glucose,
+        blood_pressure: estimated.diastolic_bp,
+        skin_thickness: 0,
+        insulin: 0,
+        bmi: bmi,
+        diabetes_pedigree: 0.5,
         age: Number(formData.age),
-        gender: Number(formData.gender),
-        height: Number(formData.height),
-        weight: Number(formData.weight),
-        systolic_bp: Number(formData.systolic_bp),
-        diastolic_bp: Number(formData.diastolic_bp),
-        cholesterol: Number(formData.cholesterol),
-        glucose: Number(formData.glucose),
-        smoking: Number(formData.smoking),
+        user_id: user?.id || null,
       }
-      const res = await API.post('/predict', payload)
+      const res = await API.post('/diabetes/predict', payload)
       setResult(res.data)
       // Save to Supabase predictions table
       if (user) {
-        const bmi = Number((payload.weight / ((payload.height / 100) ** 2)).toFixed(1))
         await supabase.from('predictions').insert({
           user_id: user.id,
           risk_score: res.data.risk_score,
@@ -310,13 +348,13 @@ export default function Analyze() {
           message: res.data.message,
           age: payload.age,
           bmi,
-          systolic_bp: payload.systolic_bp,
-          cholesterol: payload.cholesterol,
-          glucose: payload.glucose,
-          smoking: payload.smoking,
+          systolic_bp: estimated.systolic_bp,
+          cholesterol: estimated.cholesterol,
+          glucose: estimated.glucose,
+          smoking: Number(formData.smoking),
         }).then(({ error }) => { if (error) console.warn('Save prediction:', error.message) })
       }
-      setStep(4) // result step
+      setStep(3) // result step (step 1 = personal, step 2 = lifestyle, step 3 = results)
     } catch (e) {
       setApiError(e.response?.data?.detail || e.message || 'Prediction failed. Please try again.')
     } finally {
@@ -334,11 +372,10 @@ export default function Analyze() {
       gender: profile?.gender ?? '',
       height: profile?.height || '',
       weight: profile?.weight || '',
-      systolic_bp: '',
-      diastolic_bp: '',
-      cholesterol: '',
-      glucose: '',
       smoking: '',
+      exercise: '',
+      diet: '',
+      stress: '',
     })
   }
 
@@ -391,7 +428,7 @@ export default function Analyze() {
   )
 
   // ─── Result View ──────────────────────────────────────────────────
-  if (step === 4 && result) {
+  if (step === 3 && result) {
     return (
       <div className="min-h-screen bg-[#0B0E1A] pb-28">
         {/* Header */}
@@ -415,22 +452,29 @@ export default function Analyze() {
           </div>
 
           {/* Stats summary */}
-          <div className="glass-card p-6">
-            <h2 className="font-syne font-bold text-lg text-[#F0F2FF] mb-4">Your Stats</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {[
-                { label: 'BMI', value: (Number(formData.weight) / ((Number(formData.height) / 100) ** 2)).toFixed(1) },
-                { label: 'Blood Pressure', value: `${formData.systolic_bp}/${formData.diastolic_bp}` },
-                { label: 'Cholesterol', value: `${formData.cholesterol}` },
-                { label: 'Glucose', value: `${formData.glucose}` },
-              ].map(s => (
-                <div key={s.label}>
-                  <p className="text-xs text-[#4A5480] mb-1 font-dm">{s.label}</p>
-                  <p className="text-lg font-bold font-mono text-[#F0F2FF]">{s.value}</p>
+          {(() => {
+            const est = estimateMedicalValues(formData)
+            const bmi = (Number(formData.weight) / ((Number(formData.height) / 100) ** 2)).toFixed(1)
+            return (
+              <div className="glass-card p-6">
+                <h2 className="font-syne font-bold text-lg text-[#F0F2FF] mb-4">Your Estimated Stats</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {[
+                    { label: 'BMI', value: bmi },
+                    { label: 'Est. BP', value: `${est.systolic_bp}/${est.diastolic_bp}` },
+                    { label: 'Est. Cholesterol', value: est.cholesterol },
+                    { label: 'Est. Glucose', value: est.glucose },
+                  ].map(s => (
+                    <div key={s.label}>
+                      <p className="text-xs text-[#4A5480] mb-1 font-dm">{s.label}</p>
+                      <p className="text-lg font-bold font-mono text-[#F0F2FF]">{s.value}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
+                <p className="text-[10px] text-[#4A5480] mt-3 font-dm">Values estimated from your age, BMI, and lifestyle answers</p>
+              </div>
+            )
+          })()}
 
           {/* Tips */}
           {result.tips && result.tips.length > 0 && (
@@ -481,7 +525,7 @@ export default function Analyze() {
       </div>
 
       <div className="max-w-2xl mx-auto px-6 py-8">
-        <StepProgress current={step} total={3} />
+        <StepProgress current={step} total={2} />
 
         {/* Step Title */}
         <h2 className="font-syne font-bold text-xl text-[#F0F2FF] mb-6">
@@ -511,26 +555,28 @@ export default function Analyze() {
           </div>
         )}
 
-        {/* Step 2 — Cardiovascular */}
+        {/* Step 2 — Lifestyle (simple questions) */}
         {step === 2 && (
           <div className={`glass-card p-6 space-y-6 ${slideDir === 'left' ? 'animate-slideLeft' : 'animate-slideRight'}`}
                key="step-2">
-            <div className="grid grid-cols-2 gap-4">
-              {renderInput('systolic_bp', 'Systolic BP', 'e.g. 120')}
-              {renderInput('diastolic_bp', 'Diastolic BP', 'e.g. 80')}
-            </div>
-            {renderInput('cholesterol', 'Cholesterol (mg/dL)', 'e.g. 200')}
-            {renderInput('glucose', 'Glucose (mg/dL)', 'e.g. 90')}
-          </div>
-        )}
-
-        {/* Step 3 — Lifestyle */}
-        {step === 3 && (
-          <div className={`glass-card p-6 space-y-6 ${slideDir === 'left' ? 'animate-slideLeft' : 'animate-slideRight'}`}
-               key="step-3">
             {renderToggle('smoking', 'Do you smoke?', [
-              { value: 0, label: 'No' },
-              { value: 1, label: 'Yes' },
+              { value: 0, label: '🚭 No' },
+              { value: 1, label: '🚬 Yes' },
+            ])}
+            {renderToggle('exercise', 'How often do you exercise?', [
+              { value: 0, label: '😴 Rarely' },
+              { value: 1, label: '🚶 Sometimes' },
+              { value: 2, label: '🏃 Regularly' },
+            ])}
+            {renderToggle('diet', 'How would you describe your diet?', [
+              { value: 0, label: '🍔 Not great' },
+              { value: 1, label: '🍳 Okay' },
+              { value: 2, label: '🥗 Very healthy' },
+            ])}
+            {renderToggle('stress', 'How stressed are you day-to-day?', [
+              { value: 0, label: '😌 Low' },
+              { value: 1, label: '😐 Moderate' },
+              { value: 2, label: '😰 High' },
             ])}
           </div>
         )}
@@ -547,7 +593,7 @@ export default function Analyze() {
               Back
             </button>
           )}
-          {step < 3 ? (
+          {step < 2 ? (
             <button
               type="button"
               onClick={goNext}
