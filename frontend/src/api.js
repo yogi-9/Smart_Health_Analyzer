@@ -33,7 +33,7 @@ export const getHealthHistory = async (userId) => {
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(20)
-  return { data, error }
+  return { data: data ?? [], error }
 }
 
 export const getMentalHistory = async (userId) => {
@@ -43,7 +43,7 @@ export const getMentalHistory = async (userId) => {
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(20)
-  return { data, error }
+  return { data: data ?? [], error }
 }
 
 export const logWater = async (glasses) => {
@@ -60,7 +60,6 @@ export const getWaterHistory = async (userId) => {
   return API.get(`/water/history/${userId}`)
 }
 
-// ✅ NEW - Nutrition (same pattern as existing functions)
 export const logMeal = async (data) => {
   const user_id = await getUserId()
   return API.post('/nutrition/log', { ...data, user_id })
@@ -68,9 +67,7 @@ export const logMeal = async (data) => {
 
 export const getNutritionLogs = async (date = null) => {
   const user_id = await getUserId()
-  if (!user_id) {
-    throw new Error('User not authenticated')
-  }
+  if (!user_id) throw new Error('User not authenticated')
   const params = new URLSearchParams({ user_id })
   if (date) params.append('log_date', date)
   return API.get(`/nutrition/logs?${params.toString()}`)
@@ -78,13 +75,10 @@ export const getNutritionLogs = async (date = null) => {
 
 export const getNutritionSummary = async (date = null) => {
   const user_id = await getUserId()
-  if (!user_id) {
-    throw new Error('User not authenticated')
-  }
+  if (!user_id) throw new Error('User not authenticated')
   return API.get(`/nutrition/summary?user_id=${user_id}${date ? `&log_date=${date}` : ''}`)
 }
 
-// ✅ NEW - Streaks (same pattern as existing functions)
 export const getStreaks = async () => {
   const user_id = await getUserId()
   return API.get(`/streaks/?user_id=${user_id}`)

@@ -36,24 +36,18 @@ export function AuthProvider({ children }) {
         }
       }
     )
-    return () => {
-  if (subscription?.unsubscribe) {
-    subscription.unsubscribe()
-  }
-}
+    return () => subscription?.unsubscribe?.()
   }, [])
 
   const fetchProfile = async (userId) => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single()
-        .then(res => res.data)  
-        .catch(() => null)  // Return null if not found
-      setProfile(data ?? null)
-    } catch (err) {
+      setProfile(error ? null : data)
+    } catch {
       setProfile(null)
     } finally {
       setLoading(false)
@@ -61,15 +55,11 @@ export function AuthProvider({ children }) {
   }
 
   const signUp = async (email, password) => {
-    const { data, error } = await supabase.auth.signUp({ email, password })
-    return { data, error }
+    return supabase.auth.signUp({ email, password })
   }
 
   const signIn = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email, password
-    })
-    return { data, error }
+    return supabase.auth.signInWithPassword({ email, password })
   }
 
   const signOut = async () => {

@@ -8,7 +8,7 @@ import { AuthProvider } from './context/AuthContext'
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
-      <AuthProvider>  {/* ✅ ADD THIS */}
+      <AuthProvider>
         <App />
       </AuthProvider>
     </BrowserRouter>
