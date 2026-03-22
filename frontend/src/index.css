@@ -1,3 +1,246 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ========================================
+   ANTI-GRAVITY DESIGN SYSTEM — CSS Layer
+   ======================================== */
+
+:root {
+  /* Backgrounds */
+  --bg-base: #0B0E1A;
+  --bg-surface: #12172B;
+  --bg-elevated: #1A2040;
+
+  /* Accents */
+  --accent-primary: #00E5C3;
+  --accent-secondary: #7B61FF;
+  --accent-danger: #FF3D5A;
+  --accent-warning: #FFB830;
+  --accent-success: #00E5C3;
+
+  /* Text */
+  --text-primary: #F0F2FF;
+  --text-secondary: #8892B0;
+  --text-muted: #4A5480;
+
+  /* Borders & Effects */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --glow-teal: 0 0 20px rgba(0, 229, 195, 0.3);
+  --glow-violet: 0 0 20px rgba(123, 97, 255, 0.3);
+  --glow-danger: 0 0 20px rgba(255, 61, 90, 0.4);
+}
+
+/* Global defaults */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography utilities */
+.font-display {
+  font-family: 'Syne', sans-serif;
+}
+
+.font-body {
+  font-family: 'DM Sans', sans-serif;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* ========================================
+   KEYFRAME ANIMATIONS
+   ======================================== */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideLeft {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideRight {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes shakeX {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 229, 195, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(0, 229, 195, 0.4);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes drawGauge {
+  from {
+    stroke-dashoffset: 283;
+  }
+}
+
+/* Animation utility classes */
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out both;
+}
+
+.animate-slideLeft {
+  animation: slideLeft 0.25s ease-out both;
+}
+
+.animate-slideRight {
+  animation: slideRight 0.25s ease-out both;
+}
+
+.animate-shakeX {
+  animation: shakeX 0.3s ease-in-out;
+}
+
+.animate-glowPulse {
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+.animate-drawGauge {
+  animation: drawGauge 0.8s ease-out both;
+}
+
+/* Shimmer skeleton */
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--bg-surface) 25%,
+    var(--bg-elevated) 50%,
+    var(--bg-surface) 75%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Glass card base */
+.glass-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  backdrop-filter: blur(12px);
+}
+
+/* Spinner */
+.ag-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2.5px solid var(--border-subtle);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* Input base */
+.ag-input {
+  background-color: var(--bg-base);
+  border: none;
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  padding: 10px 0;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ag-input:focus {
+  border-bottom-color: var(--accent-primary);
+  box-shadow: 0 2px 8px rgba(0, 229, 195, 0.15);
+}
+
+.ag-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Remove number input spinners */
+.ag-input[type="number"]::-webkit-inner-spin-button,
+.ag-input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.ag-input[type="number"] {
+  -moz-appearance: textfield;
+}

@@ -18,8 +18,11 @@ import Results from './pages/Results'
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth()
   if (loading) return (
-    <div className="flex items-center justify-center h-screen">
-      <div className="text-gray-400 text-sm">Loading...</div>
+    <div className="flex items-center justify-center h-screen bg-[#0B0E1A]">
+      <div className="flex flex-col items-center gap-3">
+        <div className="ag-spinner" style={{ width: 32, height: 32 }} />
+        <span className="text-[#4A5480] text-sm font-dm">Loading...</span>
+      </div>
     </div>
   )
   if (!user) return <Navigate to="/login" replace />
@@ -30,8 +33,11 @@ export default function AppRoutes() {
   const { user, loading } = useAuth()
 
   if (loading) return (
-    <div className="flex items-center justify-center h-screen">
-      <div className="text-gray-400 text-sm">Loading...</div>
+    <div className="flex items-center justify-center h-screen bg-[#0B0E1A]">
+      <div className="flex flex-col items-center gap-3">
+        <div className="ag-spinner" style={{ width: 32, height: 32 }} />
+        <span className="text-[#4A5480] text-sm font-dm">Loading...</span>
+      </div>
     </div>
   )
 
