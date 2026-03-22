@@ -171,40 +171,45 @@ export default function Dashboard() {
         </div>
 
         {/* Water today widget */}
-        {todayWater && (
-          <div className="glass-card p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-medium text-[#F0F2FF] font-dm">Water today</h2>
-              <Link to="/water" className="text-xs text-[#00E5C3] hover:underline">
-                Track
-              </Link>
-            </div>
-            <div className="flex items-center gap-4">
-              <div>
-                <div className="flex items-end gap-1">
-                  <span className="text-3xl font-bold font-mono text-[#00E5C3]">
-                    {todayWater.glasses}
-                  </span>
-                  <span className="text-[#4A5480] text-sm mb-1">
-                    / {todayWater.goal}
-                  </span>
+        {todayWater && (() => {
+          const waterGoal = Number(localStorage.getItem('water_goal')) || 8
+          const waterGlasses = todayWater.glasses || 0
+          const waterPct = Math.min(Math.round((waterGlasses / waterGoal) * 100), 100)
+          const waterMl = waterGlasses * 250
+          const waterColor = waterPct >= 100 ? '#00E5C3' : waterPct >= 50 ? '#00E5C3' : waterPct > 0 ? '#FFB830' : '#1A2040'
+          return (
+            <div className="glass-card p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-medium text-[#F0F2FF] font-dm">💧 Water Today</h2>
+                <Link to="/water" className="text-xs text-[#00E5C3] hover:underline font-dm">
+                  Track →
+                </Link>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0">
+                  <div className="flex items-end gap-1">
+                    <span className="text-3xl font-bold font-mono text-[#00E5C3]">
+                      {waterGlasses}
+                    </span>
+                    <span className="text-[#4A5480] text-sm mb-1 font-dm">
+                      / {waterGoal} glasses
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#8892B0] mt-1 font-dm">
+                    {waterMl}ml · {waterPct >= 100 ? '🎉 Goal reached!' : todayWater.message}
+                  </p>
                 </div>
-                <p className="text-xs text-[#8892B0] mt-1">
-                  {todayWater.message}
-                </p>
+                <div className="flex-1 h-2.5 bg-[#1A2040] rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${waterPct}%`, backgroundColor: waterColor }} />
+                </div>
+                <span className="text-xs font-bold font-mono flex-shrink-0" style={{ color: waterColor }}>
+                  {waterPct}%
+                </span>
               </div>
-              <div className="flex-1 h-2 bg-[#1A2040] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#00E5C3] rounded-full transition-all"
-                  style={{ width: `${todayWater.percentage}%` }}
-                />
-              </div>
-              <span className="text-xs font-medium font-mono text-[#8892B0] flex-shrink-0">
-                {todayWater.percentage}%
-              </span>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* CTAs */}
         <Link to="/analyze"

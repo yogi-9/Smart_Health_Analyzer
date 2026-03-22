@@ -2,6 +2,34 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import API from '../api'
+import { supabase } from '../lib/supabase'
+
+// ─── Tooltip Component ──────────────────────────────────────────────
+function Tooltip({ text }) {
+  const [show, setShow] = useState(false)
+  return (
+    <span className="relative inline-block ml-1.5">
+      <button type="button" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}
+        onClick={() => setShow(!show)}
+        className="w-4 h-4 rounded-full bg-[#1A2040] border border-white/10 text-[#4A5480] text-[10px] font-bold inline-flex items-center justify-center hover:text-[#00E5C3] hover:border-[#00E5C3]/30 transition-colors">
+        ?
+      </button>
+      {show && (
+        <div className="absolute z-50 bottom-6 left-1/2 -translate-x-1/2 w-52 p-2.5 rounded-lg bg-[#1A2040] border border-white/10 text-[#8892B0] text-xs font-dm leading-relaxed shadow-lg animate-fadeIn">
+          {text}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-[#1A2040] rotate-45 border-r border-b border-white/10" />
+        </div>
+      )}
+    </span>
+  )
+}
+
+const TOOLTIPS = {
+  systolic_bp: 'The top number when you check blood pressure. Normal is around 120.',
+  diastolic_bp: 'The bottom number when you check blood pressure. Normal is around 80.',
+  cholesterol: 'Total cholesterol level in your blood. Normal is below 200 mg/dL.',
+  glucose: 'Blood sugar level. Normal fasting level is 70-100 mg/dL.',
+}
 
 // ─── RiskGauge Component (SVG radial arc) ───────────────────────────
 function RiskGauge({ score, riskLevel }) {
@@ -204,7 +232,7 @@ const RESULT_COPY = {
 
 // ─── Main Component ─────────────────────────────────────────────────
 export default function Analyze() {
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
 
   const [step, setStep] = useState(1)
   const [formData, setFormData] = useState({
@@ -272,6 +300,22 @@ export default function Analyze() {
       }
       const res = await API.post('/predict', payload)
       setResult(res.data)
+      // Save to Supabase predictions table
+      if (user) {
+        const bmi = Number((payload.weight / ((payload.height / 100) ** 2)).toFixed(1))
+        await supabase.from('predictions').insert({
+          user_id: user.id,
+          risk_score: res.data.risk_score,
+          risk_level: res.data.risk_level,
+          message: res.data.message,
+          age: payload.age,
+          bmi,
+          systolic_bp: payload.systolic_bp,
+          cholesterol: payload.cholesterol,
+          glucose: payload.glucose,
+          smoking: payload.smoking,
+        }).then(({ error }) => { if (error) console.warn('Save prediction:', error.message) })
+      }
       setStep(4) // result step
     } catch (e) {
       setApiError(e.response?.data?.detail || e.message || 'Prediction failed. Please try again.')
@@ -303,6 +347,7 @@ export default function Analyze() {
     <div>
       <label className="block text-xs font-medium text-[#8892B0] mb-2 tracking-wide uppercase font-dm">
         {label}
+        {TOOLTIPS[field] && <Tooltip text={TOOLTIPS[field]} />}
       </label>
       <input
         type={type}
@@ -367,6 +412,24 @@ export default function Analyze() {
             <p className="text-[#8892B0] text-sm mt-4 text-center font-dm max-w-xs">
               {result.message}
             </p>
+          </div>
+
+          {/* Stats summary */}
+          <div className="glass-card p-6">
+            <h2 className="font-syne font-bold text-lg text-[#F0F2FF] mb-4">Your Stats</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[
+                { label: 'BMI', value: (Number(formData.weight) / ((Number(formData.height) / 100) ** 2)).toFixed(1) },
+                { label: 'Blood Pressure', value: `${formData.systolic_bp}/${formData.diastolic_bp}` },
+                { label: 'Cholesterol', value: `${formData.cholesterol}` },
+                { label: 'Glucose', value: `${formData.glucose}` },
+              ].map(s => (
+                <div key={s.label}>
+                  <p className="text-xs text-[#4A5480] mb-1 font-dm">{s.label}</p>
+                  <p className="text-lg font-bold font-mono text-[#F0F2FF]">{s.value}</p>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Tips */}

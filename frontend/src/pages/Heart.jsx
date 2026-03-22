@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { predictHeart } from '../api'
 
@@ -25,12 +25,11 @@ export default function Heart() {
     thal: ''
   })
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
+  const updateField = (field, value) => {
+    setForm(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const handleSubmit = async () => {
     setLoading(true)
     setError(null)
     try {
@@ -40,197 +39,158 @@ export default function Heart() {
         )
       )
       const res = await predictHeart(payload)
-      navigate('/results', {
-        state: { type: 'heart', data: res.data }
-      })
+      navigate('/results', { state: { type: 'heart', data: res.data } })
     } catch (err) {
-      setError('Could not connect to backend. Is it running?')
+      setError('Could not connect to backend. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
+  // Toggle button helper
+  const ToggleGroup = ({ field, options, columns = 2 }) => (
+    <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
+      {options.map(opt => (
+        <button key={opt.v} type="button"
+          onClick={() => updateField(field, opt.v)}
+          className={`py-2.5 px-3 rounded-xl text-xs font-medium border transition-all duration-200 text-left ${
+            form[field] === opt.v
+              ? 'bg-[#FF3D5A] text-white border-[#FF3D5A]'
+              : 'bg-[#1A2040] text-[#8892B0] border-white/[0.06] hover:border-white/20'
+          }`}>
+          {opt.l}
+        </button>
+      ))}
+    </div>
+  )
+
+  // Input helper
+  const InputField = ({ field, label, placeholder, help, step }) => (
+    <div className="glass-card p-5">
+      <label className="block text-xs font-medium text-[#8892B0] mb-1 tracking-wide uppercase font-dm">
+        {label}
+      </label>
+      {help && <p className="text-[10px] text-[#4A5480] mb-3 font-dm">{help}</p>}
+      <input
+        type="number"
+        step={step || '1'}
+        value={form[field]}
+        onChange={e => updateField(field, e.target.value)}
+        placeholder={placeholder}
+        className="ag-input"
+      />
+    </div>
+  )
+
   return (
-    <div className="min-h-screen bg-gray-50 pb-16">
-      <div className="bg-white border-b border-gray-100 px-6 py-4">
-        <h1 className="text-lg font-semibold text-gray-900">Heart Disease Risk Check</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          ML model trained on UCI heart disease dataset
-        </p>
+    <div className="min-h-screen bg-[#0B0E1A] pb-24">
+      {/* Header */}
+      <div className="px-6 py-5 border-b border-white/[0.06]">
+        <div className="flex items-center gap-2">
+          <Link to="/analyze" className="text-[#4A5480] hover:text-[#8892B0] transition-colors">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </Link>
+          <div>
+            <h1 className="font-syne font-bold text-xl text-[#F0F2FF]">Heart Disease Risk</h1>
+            <p className="text-sm text-[#8892B0] mt-0.5 font-dm">
+              ML model trained on UCI heart dataset
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-6 py-8">
+      <div className="max-w-2xl mx-auto px-6 py-6 space-y-4 animate-fadeIn">
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl
-            text-red-600 text-sm">{error}</div>
+          <div className="p-3 rounded-xl bg-[#FF3D5A]/10 border border-[#FF3D5A]/30
+            text-[#FF3D5A] text-sm font-dm animate-fadeIn">{error}</div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="bg-white border border-gray-100 rounded-2xl p-5">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Age</label>
-            <input name="age" type="number" value={form.age} onChange={handleChange}
-              required placeholder="e.g. 45"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
-          </div>
+        <InputField field="age" label="Age" placeholder="e.g. 45"
+          help="Your age in years" />
 
-          <div className="bg-white border border-gray-100 rounded-2xl p-5">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Sex</label>
-            <div className="grid grid-cols-2 gap-3">
-              {[{v:1,l:'Male'},{v:0,l:'Female'}].map(opt => (
-                <button type="button" key={opt.v}
-                  onClick={() => setForm({...form, sex: opt.v})}
-                  className={`py-3 rounded-xl text-sm font-medium border transition-colors ${
-                    form.sex === opt.v
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
-                  {opt.l}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="glass-card p-5">
+          <label className="block text-xs font-medium text-[#8892B0] mb-1 tracking-wide uppercase font-dm">Sex</label>
+          <p className="text-[10px] text-[#4A5480] mb-3 font-dm">Biological sex</p>
+          <ToggleGroup field="sex" options={[{v:1,l:'Male'},{v:0,l:'Female'}]} />
+        </div>
 
-          <div className="bg-white border border-gray-100 rounded-2xl p-5">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Chest pain type
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                {v:0,l:'No pain'},
-                {v:1,l:'Mild — typical angina'},
-                {v:2,l:'Moderate — atypical'},
-                {v:3,l:'Sharp — non-anginal'}
-              ].map(opt => (
-                <button type="button" key={opt.v}
-                  onClick={() => setForm({...form, cp: opt.v})}
-                  className={`py-2 px-3 rounded-xl text-sm font-medium border transition-colors text-left ${
-                    form.cp === opt.v
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
-                  {opt.l}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="glass-card p-5">
+          <label className="block text-xs font-medium text-[#8892B0] mb-1 tracking-wide uppercase font-dm">
+            Chest Pain Type
+          </label>
+          <p className="text-[10px] text-[#4A5480] mb-3 font-dm">What kind of chest pain do you experience?</p>
+          <ToggleGroup field="cp" columns={2} options={[
+            {v:0,l:'No pain'},
+            {v:1,l:'Mild — typical angina'},
+            {v:2,l:'Moderate — atypical'},
+            {v:3,l:'Sharp — non-anginal'}
+          ]} />
+        </div>
 
-          <div className="bg-white border border-gray-100 rounded-2xl p-5">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Resting blood pressure (mm Hg)
-            </label>
-            <input name="trestbps" type="number" value={form.trestbps}
-              onChange={handleChange} required placeholder="e.g. 130"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
-          </div>
+        <InputField field="trestbps" label="Resting Blood Pressure (mm Hg)" placeholder="e.g. 130"
+          help="Normal: below 120. Measured at rest." />
 
-          <div className="bg-white border border-gray-100 rounded-2xl p-5">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Cholesterol (mg/dL)
-            </label>
-            <input name="chol" type="number" value={form.chol}
-              onChange={handleChange} required placeholder="e.g. 200"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
-          </div>
+        <InputField field="chol" label="Cholesterol (mg/dL)" placeholder="e.g. 200"
+          help="Total cholesterol. Normal: below 200" />
 
-          <div className="bg-white border border-gray-100 rounded-2xl p-5">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Fasting blood sugar above 120 mg/dL?
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              {[{v:1,l:'Yes'},{v:0,l:'No'}].map(opt => (
-                <button type="button" key={opt.v}
-                  onClick={() => setForm({...form, fbs: opt.v})}
-                  className={`py-3 rounded-xl text-sm font-medium border transition-colors ${
-                    form.fbs === opt.v
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
-                  {opt.l}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="glass-card p-5">
+          <label className="block text-xs font-medium text-[#8892B0] mb-1 tracking-wide uppercase font-dm">
+            Fasting Blood Sugar &gt; 120 mg/dL?
+          </label>
+          <p className="text-[10px] text-[#4A5480] mb-3 font-dm">Is your fasting blood sugar above 120?</p>
+          <ToggleGroup field="fbs" options={[{v:1,l:'Yes'},{v:0,l:'No'}]} />
+        </div>
 
-          <div className="bg-white border border-gray-100 rounded-2xl p-5">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Maximum heart rate achieved
-            </label>
-            <input name="thalach" type="number" value={form.thalach}
-              onChange={handleChange} required placeholder="e.g. 150"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
-          </div>
+        <InputField field="thalach" label="Maximum Heart Rate" placeholder="e.g. 150"
+          help="Highest heart rate during exercise. Normal: 220 minus your age." />
 
-          <div className="bg-white border border-gray-100 rounded-2xl p-5">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Chest pain during exercise?
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              {[{v:1,l:'Yes'},{v:0,l:'No'}].map(opt => (
-                <button type="button" key={opt.v}
-                  onClick={() => setForm({...form, exang: opt.v})}
-                  className={`py-3 rounded-xl text-sm font-medium border transition-colors ${
-                    form.exang === opt.v
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
-                  {opt.l}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="glass-card p-5">
+          <label className="block text-xs font-medium text-[#8892B0] mb-1 tracking-wide uppercase font-dm">
+            Chest Pain During Exercise?
+          </label>
+          <p className="text-[10px] text-[#4A5480] mb-3 font-dm">Do you get chest pain when exercising?</p>
+          <ToggleGroup field="exang" options={[{v:1,l:'Yes'},{v:0,l:'No'}]} />
+        </div>
 
-          <div className="bg-white border border-gray-100 rounded-2xl p-5">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              ST depression (oldpeak)
-            </label>
-            <input name="oldpeak" type="number" step="0.1" value={form.oldpeak}
-              onChange={handleChange} required placeholder="e.g. 1.0 (enter 0 if unsure)"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
-          </div>
+        <InputField field="oldpeak" label="ST Depression (Oldpeak)" placeholder="e.g. 1.0 (enter 0 if unsure)"
+          help="ECG reading. Enter 0 if you don't know this value." step="0.1" />
 
-          <div className="bg-white border border-gray-100 rounded-2xl p-5">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Number of major vessels (0-3)
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {[0,1,2,3].map(v => (
-                <button type="button" key={v}
-                  onClick={() => setForm({...form, ca: v})}
-                  className={`py-3 rounded-xl text-sm font-medium border transition-colors ${
-                    form.ca === v
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
-                  {v}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="glass-card p-5">
+          <label className="block text-xs font-medium text-[#8892B0] mb-1 tracking-wide uppercase font-dm">
+            Major Vessels (0-3)
+          </label>
+          <p className="text-[10px] text-[#4A5480] mb-3 font-dm">Number of major blood vessels colored by fluoroscopy</p>
+          <ToggleGroup field="ca" columns={4} options={[
+            {v:0,l:'0'},{v:1,l:'1'},{v:2,l:'2'},{v:3,l:'3'}
+          ]} />
+        </div>
 
-          <div className="bg-white border border-gray-100 rounded-2xl p-5">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Thalassemia
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {[{v:0,l:'Normal'},{v:1,l:'Fixed defect'},{v:2,l:'Reversible'}].map(opt => (
-                <button type="button" key={opt.v}
-                  onClick={() => setForm({...form, thal: opt.v})}
-                  className={`py-2 px-3 rounded-xl text-sm font-medium border transition-colors ${
-                    form.thal === opt.v
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
-                  {opt.l}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="glass-card p-5">
+          <label className="block text-xs font-medium text-[#8892B0] mb-1 tracking-wide uppercase font-dm">
+            Thalassemia
+          </label>
+          <p className="text-[10px] text-[#4A5480] mb-3 font-dm">Blood disorder type, if known</p>
+          <ToggleGroup field="thal" columns={3} options={[
+            {v:0,l:'Normal'},{v:1,l:'Fixed defect'},{v:2,l:'Reversible'}
+          ]} />
+        </div>
 
-          <button type="submit" disabled={loading}
-            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-medium
-              hover:bg-blue-700 disabled:opacity-50 transition-colors">
-            {loading ? 'Analyzing...' : 'Check heart disease risk'}
-          </button>
-        </form>
+        <button type="button" onClick={handleSubmit}
+          disabled={loading}
+          className="w-full bg-[#FF3D5A] text-white py-4 rounded-2xl font-semibold text-sm
+            hover:scale-[1.01] active:scale-[0.99] transition-transform duration-150
+            disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+          {loading ? (
+            <><span className="ag-spinner" style={{width:18,height:18,borderWidth:2}} /> Analyzing...</>
+          ) : 'Check Heart Disease Risk'}
+        </button>
+
+        <p className="text-[10px] text-[#4A5480] text-center font-dm pt-2">
+          This screening does not replace medical diagnosis.
+          Consult your cardiologist for proper evaluation.
+        </p>
       </div>
     </div>
   )
