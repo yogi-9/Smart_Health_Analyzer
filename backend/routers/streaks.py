@@ -1,27 +1,25 @@
 # backend/routers/streaks.py
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+from typing import Optional
 import os
 from supabase import create_client
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 router = APIRouter(prefix="/streaks", tags=["streaks"])
 
-def get_supabase(token: str):
+def get_supabase():
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_KEY")
-    client = create_client(url, key)
-    client.postgrest.auth(token)
-    return client
+    return create_client(url, key)
 
+class StreakInput(BaseModel):
+    user_id: str
 
 @router.get("/")
-def get_streaks(authorization: str = Header(...)):
+def get_streaks(user_id: str):
     try:
-        token = authorization.replace("Bearer ", "")
-        supabase = get_supabase(token)
-        user = supabase.auth.get_user(token)
-        user_id = user.user.id
-
+        supabase = get_supabase()
         result = (
             supabase.table("streaks")
             .select("*")
@@ -29,27 +27,21 @@ def get_streaks(authorization: str = Header(...)):
             .execute()
         )
         return {"success": True, "data": result.data}
-
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/login")
-def record_login_streak(authorization: str = Header(...)):
-    """Call this every time user logs in"""
+def record_login_streak(data: StreakInput):
     try:
-        token = authorization.replace("Bearer ", "")
-        supabase = get_supabase(token)
-        user = supabase.auth.get_user(token)
-        user_id = user.user.id
-
+        supabase = get_supabase()
         today = date.today()
         yesterday = today - timedelta(days=1)
 
         existing = (
             supabase.table("streaks")
             .select("*")
-            .eq("user_id", user_id)
+            .eq("user_id", data.user_id)
             .eq("streak_type", "login")
             .execute()
         )
@@ -73,7 +65,7 @@ def record_login_streak(authorization: str = Header(...)):
             }).eq("id", row["id"]).execute()
 
             supabase.table("streak_logs").insert({
-                "user_id": user_id,
+                "user_id": data.user_id,
                 "streak_type": "login",
                 "activity_date": str(today),
             }).execute()
@@ -82,7 +74,7 @@ def record_login_streak(authorization: str = Header(...)):
                     "longest_streak": longest}
         else:
             supabase.table("streaks").insert({
-                "user_id": user_id,
+                "user_id": data.user_id,
                 "streak_type": "login",
                 "current_streak": 1,
                 "longest_streak": 1,
