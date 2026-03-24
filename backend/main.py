@@ -10,6 +10,7 @@ from routes_mental import router as mental_router
 from routes_diabetes import router as diabetes_router
 from routes_heart import router as heart_router
 from routes_water import router as water_router
+from routes_ai import router as ai_router
 from routers import nutrition, streaks
 
 app = FastAPI(
@@ -35,6 +36,7 @@ app.include_router(mental_router)
 app.include_router(diabetes_router)
 app.include_router(heart_router)
 app.include_router(water_router)
+app.include_router(ai_router)
 app.include_router(nutrition.router)
 app.include_router(streaks.router)
 

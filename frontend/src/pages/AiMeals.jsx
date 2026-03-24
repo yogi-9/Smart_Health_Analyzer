@@ -57,15 +57,6 @@ export default function AiMeals() {
     setGenerating(true)
     setLoading(true)
     try {
-      const apiKey = import.meta.env.VITE_CLAUDE_API_KEY
-      if (!apiKey) {
-        setPlan(getFallbackPlan())
-        showToast('Using sample plan — add VITE_CLAUDE_API_KEY for AI-generated plans', 'info')
-        setLoading(false)
-        setGenerating(false)
-        return
-      }
-
       // Get user health context
       let healthCtx = ''
       try {
@@ -76,37 +67,27 @@ export default function AiMeals() {
         }
       } catch {}
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 800,
-          system: 'You are a nutritionist. Return ONLY valid JSON, no markdown, no explanation.',
-          messages: [{
-            role: 'user',
-            content: `Generate a simple, healthy Indian meal plan for today.
-Daily calorie target: ${calorieGoal} kcal.
-${healthCtx}
-Keep it simple, healthy, affordable.
-Return ONLY this JSON format, no other text:
-{"breakfast":{"name":"...","ingredients":["..."],"calories":0,"prep_time":"... min"},"lunch":{"name":"...","ingredients":["..."],"calories":0,"prep_time":"... min"},"dinner":{"name":"...","ingredients":["..."],"calories":0,"prep_time":"... min"},"snacks":{"name":"...","ingredients":["..."],"calories":0,"prep_time":"... min"}}`
-          }],
-        }),
+      const { default: API } = await import('../api')
+      const res = await API.post('/ai/meal-plan', {
+        health_context: healthCtx,
+        preferences: 'Indian, healthy, affordable',
       })
 
-      if (!response.ok) throw new Error(`API error: ${response.status}`)
-
-      const data = await response.json()
-      let planText = data.content?.[0]?.text || ''
-      // Clean markdown code fences if present
-      planText = planText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-      const parsedPlan = JSON.parse(planText)
+      // Parse response — backend may return { meals: [...] } or { breakfast: ..., lunch: ... }
+      let parsedPlan = res.data
+      if (parsedPlan.meals && Array.isArray(parsedPlan.meals)) {
+        // Convert from array format to object format
+        const planObj = {}
+        parsedPlan.meals.forEach(m => {
+          planObj[m.type.toLowerCase()] = {
+            name: m.name,
+            ingredients: typeof m.ingredients === 'string' ? m.ingredients.split(', ') : m.ingredients,
+            calories: m.calories,
+            prep_time: m.prep_time,
+          }
+        })
+        parsedPlan = planObj
+      }
       setPlan(parsedPlan)
 
       // Save to Supabase

@@ -82,44 +82,19 @@ export default function AiCoach() {
     setTyping(true)
 
     try {
-      const apiKey = import.meta.env.VITE_CLAUDE_API_KEY
-      if (!apiKey) {
-        setMessages(prev => [...prev, {
-          role: 'ai',
-          text: "Sorry, the AI service isn't configured yet. Please add your VITE_CLAUDE_API_KEY to the environment variables."
-        }])
-        setTyping(false)
-        return
-      }
-
       // Build recent conversation history (last 10)
       const recentMsgs = [...messages.slice(-10), userMsg].map(m => ({
         role: m.role === 'ai' ? 'assistant' : 'user',
         content: m.text
       }))
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 300,
-          system: userContext,
-          messages: recentMsgs,
-        }),
+      const { default: API } = await import('../api')
+      const res = await API.post('/ai/chat', {
+        messages: recentMsgs,
+        user_context: userContext,
       })
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
-      }
-
-      const data = await response.json()
-      const aiText = data.content?.[0]?.text || "I couldn't generate a response. Please try again."
+      const aiText = res.data?.reply || "I couldn't generate a response. Please try again."
       setMessages(prev => [...prev, { role: 'ai', text: aiText }])
     } catch (e) {
       console.error('AI Coach error:', e)

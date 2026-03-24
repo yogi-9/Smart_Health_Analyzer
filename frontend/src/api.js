@@ -89,4 +89,19 @@ export const recordLoginStreak = async () => {
   return API.post('/streaks/login', { user_id })
 }
 
+export const recordStreak = async (streak_type) => {
+  const user_id = await getUserId()
+  return API.post('/streaks/record', { user_id, streak_type })
+}
+
+export const getBadges = async () => {
+  const user_id = await getUserId()
+  return API.get(`/streaks/badges?user_id=${user_id}`)
+}
+
+export const getHeatmap = async () => {
+  const user_id = await getUserId()
+  return API.get(`/streaks/heatmap?user_id=${user_id}`)
+}
+
 export default API
