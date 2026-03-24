@@ -211,27 +211,34 @@ body {
   animation: spin 0.6s linear infinite;
 }
 
-/* Input base */
+/* Input base — premium glassmorphism */
 .ag-input {
-  background-color: var(--bg-base);
-  border: none;
-  border-bottom: 1.5px solid rgba(255, 255, 255, 0.15);
+  background-color: #131833;
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
   color: var(--text-primary);
   font-family: 'DM Sans', sans-serif;
   font-size: 15px;
-  padding: 10px 0;
+  padding: 14px 16px;
   width: 100%;
   outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+}
+
+.ag-input:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background-color: #161c3f;
 }
 
 .ag-input:focus {
-  border-bottom-color: var(--accent-primary);
-  box-shadow: 0 2px 8px rgba(0, 229, 195, 0.15);
+  border-color: var(--accent-primary);
+  background-color: #161c3f;
+  box-shadow: 0 0 0 3px rgba(0, 229, 195, 0.12), 0 2px 12px rgba(0, 229, 195, 0.08);
 }
 
 .ag-input::placeholder {
-  color: var(--text-muted);
+  color: #4A5480;
+  font-size: 14px;
 }
 
 /* Remove number input spinners */
