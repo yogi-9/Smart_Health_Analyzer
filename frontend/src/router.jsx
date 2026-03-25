@@ -2,16 +2,16 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { lazy, Suspense } from 'react'
 
-// Eagerly load auth pages (needed immediately)
+// Eagerly load critical path pages (needed immediately)
 import Login from './pages/Login'
 import Register from './pages/Register'
+import Dashboard from './pages/Dashboard'
+import Analyze from './pages/Analyze'
 
-// Lazy load everything else (loaded on demand = faster initial load)
+// Lazy load secondary pages (loaded on demand)
 const ProfileSetup = lazy(() => import('./pages/ProfileSetup'))
-const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Nutrition = lazy(() => import('./pages/Nutrition'))
 const Water = lazy(() => import('./pages/Water'))
-const Analyze = lazy(() => import('./pages/Analyze'))
 const MentalHealth = lazy(() => import('./pages/MentalHealth'))
 const Diabetes = lazy(() => import('./pages/Diabetes'))
 const Heart = lazy(() => import('./pages/Heart'))

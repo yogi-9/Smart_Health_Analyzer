@@ -5,8 +5,12 @@ import os, json, httpx
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
-GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+
+
+def get_gemini_key():
+    """Read key at call time, not import time, so .env is loaded first."""
+    return os.getenv("GEMINI_API_KEY")
 
 
 # ─── Models ──────────────────────────────────────────────────────────
@@ -29,43 +33,68 @@ class MealRequest(BaseModel):
 
 @router.post("/chat")
 async def ai_chat(req: ChatRequest):
-    if not GEMINI_KEY:
-        # Fallback when no key configured
+    key = get_gemini_key()
+    if not key:
         return {"reply": "I'm currently offline. Please check back later or ask your doctor for advice."}
 
-    system = req.system_prompt or "You are a friendly, supportive health coach. Give short, practical advice. Use simple language."
+    system = req.system_prompt or "You are a friendly, supportive health coach. Give short, practical advice. Use simple language. Keep responses under 3 sentences."
     if req.user_context:
         system += f"\n\nUser's health data:\n{req.user_context}"
 
     # Convert messages to Gemini format
+    # IMPORTANT: Gemini requires first message to be role=user
+    # Filter out any assistant/model messages at the start
     contents = []
+    started = False
     for msg in req.messages:
+        role = "user" if msg.role == "user" else "model"
+        if not started and role == "model":
+            continue  # Skip leading AI messages
+        started = True
         contents.append({
-            "role": "user" if msg.role == "user" else "model",
+            "role": role,
             "parts": [{"text": msg.content}]
         })
 
+    # Ensure we have at least one user message
+    if not contents:
+        return {"reply": "Please send me a message and I'll help you with your health questions!"}
+
+    # Gemini requires alternating roles - merge consecutive same-role messages
+    merged = [contents[0]]
+    for c in contents[1:]:
+        if c["role"] == merged[-1]["role"]:
+            merged[-1]["parts"][0]["text"] += "\n" + c["parts"][0]["text"]
+        else:
+            merged.append(c)
+
     payload = {
         "system_instruction": {"parts": [{"text": system}]},
-        "contents": contents,
+        "contents": merged,
         "generationConfig": {
             "temperature": 0.7,
-            "maxOutputTokens": 500,
+            "maxOutputTokens": 400,
         }
     }
 
     try:
         async with httpx.AsyncClient(timeout=30) as client:
-            r = await client.post(f"{GEMINI_URL}?key={GEMINI_KEY}", json=payload)
+            r = await client.post(f"{GEMINI_URL}?key={key}", json=payload)
             if r.status_code != 200:
-                print(f"Gemini error: {r.status_code} {r.text[:300]}")
+                error_text = r.text[:500]
+                print(f"Gemini error {r.status_code}: {error_text}")
+                # Return a helpful error instead of generic "oops"
+                if "API_KEY" in error_text.upper():
+                    return {"reply": "API key issue. Please check your Gemini API key in the backend .env file."}
                 return {"reply": "Sorry, I couldn't process that right now. Please try again."}
 
             data = r.json()
             text = data["candidates"][0]["content"]["parts"][0]["text"]
             return {"reply": text}
+    except httpx.TimeoutException:
+        return {"reply": "The AI took too long to respond. Please try a shorter question."}
     except Exception as e:
-        print(f"AI chat error: {e}")
+        print(f"AI chat error: {type(e).__name__}: {e}")
         return {"reply": "Connection issue. Please try again in a moment."}
 
 
@@ -98,7 +127,8 @@ FALLBACK_MEALS = {
 
 @router.post("/meal-plan")
 async def ai_meal_plan(req: MealRequest):
-    if not GEMINI_KEY:
+    key = get_gemini_key()
+    if not key:
         return FALLBACK_MEALS
 
     prompt = MEAL_PROMPT.format(
@@ -113,9 +143,9 @@ async def ai_meal_plan(req: MealRequest):
 
     try:
         async with httpx.AsyncClient(timeout=30) as client:
-            r = await client.post(f"{GEMINI_URL}?key={GEMINI_KEY}", json=payload)
+            r = await client.post(f"{GEMINI_URL}?key={key}", json=payload)
             if r.status_code != 200:
-                print(f"Gemini meal error: {r.status_code}")
+                print(f"Gemini meal error: {r.status_code} {r.text[:200]}")
                 return FALLBACK_MEALS
 
             data = r.json()
@@ -128,5 +158,5 @@ async def ai_meal_plan(req: MealRequest):
             meal_plan = json.loads(text)
             return meal_plan
     except Exception as e:
-        print(f"Meal plan error: {e}")
+        print(f"Meal plan error: {type(e).__name__}: {e}")
         return FALLBACK_MEALS
