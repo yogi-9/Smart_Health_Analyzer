@@ -1,16 +1,34 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
-import os, json, httpx
+import os, json, httpx, asyncio, time
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
+# Simple cache to avoid hammering Gemini
+_cache = {}  # key -> (timestamp, response)
+CACHE_TTL = 3600  # 1 hour
+
 
 def get_gemini_key():
     """Read key at call time, not import time, so .env is loaded first."""
     return os.getenv("GEMINI_API_KEY")
+
+
+async def gemini_request(key, payload, retries=3):
+    """Call Gemini with automatic retry on 429 rate limit."""
+    for attempt in range(retries):
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.post(f"{GEMINI_URL}?key={key}", json=payload)
+            if r.status_code == 429:
+                wait = 2 ** (attempt + 1)  # 2s, 4s, 8s
+                print(f"Gemini 429 rate limit, retrying in {wait}s (attempt {attempt+1}/{retries})")
+                await asyncio.sleep(wait)
+                continue
+            return r
+    return r  # Return last response even if still 429
 
 
 # ─── Models ──────────────────────────────────────────────────────────
@@ -78,19 +96,19 @@ async def ai_chat(req: ChatRequest):
     }
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            r = await client.post(f"{GEMINI_URL}?key={key}", json=payload)
-            if r.status_code != 200:
-                error_text = r.text[:500]
-                print(f"Gemini error {r.status_code}: {error_text}")
-                # Return a helpful error instead of generic "oops"
-                if "API_KEY" in error_text.upper():
-                    return {"reply": "API key issue. Please check your Gemini API key in the backend .env file."}
-                return {"reply": "Sorry, I couldn't process that right now. Please try again."}
+        r = await gemini_request(key, payload)
+        if r.status_code != 200:
+            error_text = r.text[:500]
+            print(f"Gemini error {r.status_code}: {error_text}")
+            if "API_KEY" in error_text.upper():
+                return {"reply": "API key issue. Please check your Gemini API key in the backend .env file."}
+            if r.status_code == 429:
+                return {"reply": "I'm getting a lot of questions right now! Please wait 30 seconds and try again."}
+            return {"reply": "Sorry, I couldn't process that right now. Please try again."}
 
-            data = r.json()
-            text = data["candidates"][0]["content"]["parts"][0]["text"]
-            return {"reply": text}
+        data = r.json()
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+        return {"reply": text}
     except httpx.TimeoutException:
         return {"reply": "The AI took too long to respond. Please try a shorter question."}
     except Exception as e:
@@ -131,6 +149,13 @@ async def ai_meal_plan(req: MealRequest):
     if not key:
         return FALLBACK_MEALS
 
+    # Check cache first
+    cache_key = f"meal:{req.health_context}:{req.preferences}"
+    if cache_key in _cache:
+        ts, cached = _cache[cache_key]
+        if time.time() - ts < CACHE_TTL:
+            return cached
+
     prompt = MEAL_PROMPT.format(
         context=f"User health: {req.health_context}" if req.health_context else "",
         prefs=f"Preferences: {req.preferences}" if req.preferences else ""
@@ -142,21 +167,21 @@ async def ai_meal_plan(req: MealRequest):
     }
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            r = await client.post(f"{GEMINI_URL}?key={key}", json=payload)
-            if r.status_code != 200:
-                print(f"Gemini meal error: {r.status_code} {r.text[:200]}")
-                return FALLBACK_MEALS
+        r = await gemini_request(key, payload)
+        if r.status_code != 200:
+            print(f"Gemini meal error: {r.status_code} {r.text[:200]}")
+            return FALLBACK_MEALS
 
-            data = r.json()
-            text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        data = r.json()
+        text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
 
-            # Strip markdown code fences if present
-            if text.startswith("```"):
-                text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        # Strip markdown code fences if present
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
 
-            meal_plan = json.loads(text)
-            return meal_plan
+        meal_plan = json.loads(text)
+        _cache[cache_key] = (time.time(), meal_plan)  # Cache result
+        return meal_plan
     except Exception as e:
         print(f"Meal plan error: {type(e).__name__}: {e}")
         return FALLBACK_MEALS
