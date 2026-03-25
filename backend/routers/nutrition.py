@@ -1,16 +1,11 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-import os
-from supabase import create_client
 from datetime import date, datetime, timedelta
+from database import supabase_client
 
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
 
-def get_supabase():
-    url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_KEY")
-    return create_client(url, key)
 
 class NutritionLogInput(BaseModel):
     user_id: str
@@ -26,10 +21,12 @@ class NutritionLogInput(BaseModel):
     meal_time: Optional[str] = None
     date: Optional[str] = None
 
+
 @router.post("/log")
 def log_meal(data: NutritionLogInput):
+    if not supabase_client:
+        raise HTTPException(500, "Database not configured")
     try:
-        supabase = get_supabase()
         log_date = data.date or str(date.today())
 
         payload = {
@@ -43,91 +40,80 @@ def log_meal(data: NutritionLogInput):
             "carbs": data.carbs,
             "fat": data.fat,
             "fiber": data.fiber,
-            "meal_time": data.meal_time,
-            "date": log_date,
+            "log_date": log_date,
         }
-        result = supabase.table("nutrition_logs").insert(payload).execute()
-        _update_daily_summary(supabase, data.user_id, log_date, data)
-        _update_streak(supabase, data.user_id, log_date)
+        # Remove None values
+        payload = {k: v for k, v in payload.items() if v is not None}
+        result = supabase_client.table("nutrition_logs").insert(payload).execute()
+
+        # Try to update streaks (don't fail if table missing)
+        try:
+            _update_streak(data.user_id, log_date)
+        except Exception:
+            pass
+
         return {"success": True, "data": result.data}
     except Exception as e:
+        print(f"Nutrition log error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.get("/logs")
 def get_logs(user_id: str, log_date: Optional[str] = None):
+    if not supabase_client:
+        raise HTTPException(500, "Database not configured")
     try:
-        supabase = get_supabase()
         query_date = log_date or str(date.today())
         result = (
-            supabase.table("nutrition_logs")
+            supabase_client.table("nutrition_logs")
             .select("*")
             .eq("user_id", user_id)
-            .eq("date", query_date)
-            .order("logged_at", desc=False)
+            .eq("log_date", query_date)
+            .order("created_at", desc=False)
             .execute()
         )
         return {"success": True, "data": result.data}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.get("/summary")
 def get_summary(user_id: str, log_date: Optional[str] = None):
+    if not supabase_client:
+        raise HTTPException(500, "Database not configured")
     try:
-        supabase = get_supabase()
         query_date = log_date or str(date.today())
+        # Calculate summary from nutrition_logs directly
         result = (
-            supabase.table("nutrition_daily_summary")
+            supabase_client.table("nutrition_logs")
             .select("*")
             .eq("user_id", user_id)
-            .eq("date", query_date)
+            .eq("log_date", query_date)
             .execute()
         )
-        return {"success": True, "data": result.data}
+        logs = result.data or []
+        summary = {
+            "total_calories": sum(l.get("calories", 0) or 0 for l in logs),
+            "total_protein": sum(l.get("protein", 0) or 0 for l in logs),
+            "total_carbs": sum(l.get("carbs", 0) or 0 for l in logs),
+            "total_fat": sum(l.get("fat", 0) or 0 for l in logs),
+            "meal_count": len(logs),
+            "date": query_date,
+        }
+        return {"success": True, "data": [summary] if logs else []}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-def _update_daily_summary(supabase, user_id, log_date, data):
-    existing = (
-        supabase.table("nutrition_daily_summary")
-        .select("*")
-        .eq("user_id", user_id)
-        .eq("date", log_date)
-        .execute()
-    )
-    meal_count_field = f"{data.meal_type}_count"
-    if existing.data:
-        row = existing.data[0]
-        update_payload = {
-            "total_calories": row["total_calories"] + (data.calories or 0),
-            "total_protein": row["total_protein"] + (data.protein or 0),
-            "total_carbs": row["total_carbs"] + (data.carbs or 0),
-            "total_fat": row["total_fat"] + (data.fat or 0),
-            meal_count_field: row[meal_count_field] + 1,
-        }
-        update_payload["goal_met"] = update_payload["total_calories"] >= row.get("calorie_goal", 2000)
-        supabase.table("nutrition_daily_summary").update(
-            update_payload).eq("id", row["id"]).execute()
-    else:
-        supabase.table("nutrition_daily_summary").insert({
-            "user_id": user_id,
-            "date": log_date,
-            "total_calories": data.calories or 0,
-            "total_protein": data.protein or 0,
-            "total_carbs": data.carbs or 0,
-            "total_fat": data.fat or 0,
-            meal_count_field: 1,
-            "calorie_goal": 2000,
-            "goal_met": False,
-        }).execute()
 
-def _update_streak(supabase, user_id, log_date):
+def _update_streak(user_id, log_date):
+    """Update food streak when meal is logged."""
     today = datetime.strptime(log_date, "%Y-%m-%d").date()
     yesterday = today - timedelta(days=1)
     existing = (
-        supabase.table("streaks")
+        supabase_client.table("streaks")
         .select("*")
         .eq("user_id", user_id)
-        .eq("streak_type", "healthy_eating")
+        .eq("streak_type", "food")
         .execute()
     )
     if existing.data:
@@ -136,15 +122,15 @@ def _update_streak(supabase, user_id, log_date):
             return
         new_streak = row["current_streak"] + 1 if row["last_activity_date"] == str(yesterday) else 1
         longest = max(row["longest_streak"], new_streak)
-        supabase.table("streaks").update({
+        supabase_client.table("streaks").update({
             "current_streak": new_streak,
             "longest_streak": longest,
             "last_activity_date": str(today),
         }).eq("id", row["id"]).execute()
     else:
-        supabase.table("streaks").insert({
+        supabase_client.table("streaks").insert({
             "user_id": user_id,
-            "streak_type": "healthy_eating",
+            "streak_type": "food",
             "current_streak": 1,
             "longest_streak": 1,
             "last_activity_date": str(today),

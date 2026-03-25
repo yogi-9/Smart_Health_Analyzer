@@ -5,7 +5,7 @@ import os, json, httpx, asyncio, time
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"
 
 # Simple cache to avoid hammering Gemini
 _cache = {}  # key -> (timestamp, response)
