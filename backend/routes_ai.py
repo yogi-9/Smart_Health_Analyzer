@@ -147,6 +147,23 @@ async def ai_chat(req: ChatRequest):
     if not messages:
         return {"reply": "Please send me a message and I'll help you with your health questions!"}
 
+    # NVIDIA requires strict user/assistant alternation starting with "user"
+    # 1. Strip leading assistant messages (e.g. the welcome greeting)
+    while messages and messages[0]["role"] == "assistant":
+        messages.pop(0)
+
+    if not messages:
+        return {"reply": "Please send me a message and I'll help you with your health questions!"}
+
+    # 2. Merge consecutive same-role messages to enforce alternation
+    merged = [messages[0]]
+    for msg in messages[1:]:
+        if msg["role"] == merged[-1]["role"]:
+            merged[-1]["content"] += "\n" + msg["content"]
+        else:
+            merged.append(msg)
+    messages = merged
+
     try:
         if provider == "nvidia":
             r = await nvidia_request(key, messages, system_prompt=system, max_tokens=400, temperature=0.7)
