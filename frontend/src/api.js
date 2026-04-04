@@ -62,6 +62,7 @@ export const getWaterHistory = async (userId) => {
 
 export const logMeal = async (data) => {
   const user_id = await getUserId()
+  if (!user_id) throw new Error('User not authenticated')
   return API.post('/nutrition/log', { ...data, user_id })
 }
 
