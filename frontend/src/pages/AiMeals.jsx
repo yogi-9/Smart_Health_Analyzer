@@ -53,7 +53,7 @@ export default function AiMeals() {
     }
   }
 
-  const generatePlan = async () => {
+  const generatePlan = async (forceRefresh = false) => {
     setGenerating(true)
     setLoading(true)
     try {
@@ -71,6 +71,7 @@ export default function AiMeals() {
       const res = await API.post('/ai/meal-plan', {
         health_context: healthCtx,
         preferences: 'Indian, healthy, affordable',
+        force_refresh: forceRefresh,
       })
 
       // Parse response — backend may return { meals: [...] } or { breakfast: ..., lunch: ... }
@@ -116,12 +117,12 @@ export default function AiMeals() {
       .eq('user_id', user.id)
       .eq('date', today)
     setPlan(null)
-    await generatePlan()
+    await generatePlan(true)
   }
 
   const addToFoodLog = async (mealType, meal) => {
     try {
-      await logMeal({
+      const result = await logMeal({
         meal_type: mealType === 'snacks' ? 'snack' : mealType,
         food_name: meal.name,
         calories: meal.calories || 0,
@@ -131,9 +132,13 @@ export default function AiMeals() {
         quantity: 1,
         unit: 'serving',
       })
-      showToast('Added to your food diary! ✅')
+      if (result) {
+        showToast('Added to your food diary! ✅')
+      }
     } catch (e) {
-      showToast('Failed to add — try again', 'error')
+      console.error('Add to food log error:', e)
+      const msg = e?.response?.data?.detail || e?.message || 'Unknown error'
+      showToast(`Failed to add: ${msg}`, 'error')
     }
   }
 
