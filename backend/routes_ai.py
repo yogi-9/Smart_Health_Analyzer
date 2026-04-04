@@ -9,6 +9,9 @@ router = APIRouter(prefix="/ai", tags=["AI"])
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 NVIDIA_MODEL = "google/gemma-3n-e4b-it"
 
+# Gemini API (fallback — free 15 req/min)
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+
 # Simple cache to avoid hammering the API
 _cache = {}  # key -> (timestamp, response)
 CACHE_TTL = 3600  # 1 hour
@@ -17,6 +20,30 @@ CACHE_TTL = 3600  # 1 hour
 def get_nvidia_key():
     """Read key at call time, not import time, so .env is loaded first."""
     return os.getenv("NVIDIA_API_KEY")
+
+
+def get_gemini_key():
+    """Read Gemini key at call time."""
+    return os.getenv("GEMINI_API_KEY")
+
+
+def get_ai_provider():
+    """Return (provider, key) — picks first available provider."""
+    nvidia = get_nvidia_key()
+    if nvidia:
+        return ("nvidia", nvidia)
+    gemini = get_gemini_key()
+    if gemini:
+        return ("gemini", gemini)
+    return (None, None)
+
+
+# Log which AI provider is configured on module load
+_nvidia = os.getenv("NVIDIA_API_KEY")
+_gemini = os.getenv("GEMINI_API_KEY")
+print(f"AI config: NVIDIA={'✓' if _nvidia else '✗'}, Gemini={'✓' if _gemini else '✗'}")
+if not _nvidia and not _gemini:
+    print("⚠️  WARNING: No AI API key configured! Set NVIDIA_API_KEY or GEMINI_API_KEY in .env / Render environment")
 
 
 async def nvidia_request(key, messages, system_prompt=None, max_tokens=400, temperature=0.7, retries=2):
@@ -60,6 +87,28 @@ async def nvidia_request(key, messages, system_prompt=None, max_tokens=400, temp
     return r
 
 
+async def gemini_chat(key, messages, system_prompt=None, max_tokens=400, temperature=0.7):
+    """Call Gemini API as fallback."""
+    contents = []
+    for msg in messages:
+        role = "user" if msg.get("role") == "user" else "model"
+        contents.append({"role": role, "parts": [{"text": msg["content"]}]})
+
+    payload = {
+        "contents": contents,
+        "generationConfig": {
+            "temperature": temperature,
+            "maxOutputTokens": max_tokens,
+        }
+    }
+    if system_prompt:
+        payload["system_instruction"] = {"parts": [{"text": system_prompt}]}
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.post(f"{GEMINI_URL}?key={key}", json=payload)
+        return r
+
+
 # ─── Models ──────────────────────────────────────────────────────────
 
 class ChatMessage(BaseModel):
@@ -80,7 +129,7 @@ class MealRequest(BaseModel):
 
 @router.post("/chat")
 async def ai_chat(req: ChatRequest):
-    key = get_nvidia_key()
+    provider, key = get_ai_provider()
     if not key:
         return {"reply": "I'm currently offline. Please check back later or ask your doctor for advice."}
 
@@ -88,7 +137,7 @@ async def ai_chat(req: ChatRequest):
     if req.user_context:
         system += f"\n\nUser's health data:\n{req.user_context}"
 
-    # Convert messages to OpenAI format (NVIDIA uses OpenAI-compatible API)
+    # Convert messages to standard format
     messages = []
     for msg in req.messages:
         role = "user" if msg.role == "user" else "assistant"
@@ -99,19 +148,39 @@ async def ai_chat(req: ChatRequest):
         return {"reply": "Please send me a message and I'll help you with your health questions!"}
 
     try:
-        r = await nvidia_request(key, messages, system_prompt=system, max_tokens=400, temperature=0.7)
-        if r.status_code != 200:
-            error_text = r.text[:500]
-            print(f"NVIDIA error {r.status_code}: {error_text}")
-            if r.status_code == 401:
-                return {"reply": "API key issue. Please check your NVIDIA API key."}
-            if r.status_code == 429:
-                return {"reply": "I'm getting a lot of questions right now! Please wait a moment and try again."}
-            return {"reply": "Sorry, I couldn't process that right now. Please try again."}
+        if provider == "nvidia":
+            r = await nvidia_request(key, messages, system_prompt=system, max_tokens=400, temperature=0.7)
+            if r.status_code != 200:
+                error_text = r.text[:500]
+                print(f"NVIDIA error {r.status_code}: {error_text}")
+                # Try Gemini fallback
+                gemini_key = get_gemini_key()
+                if gemini_key:
+                    print("Falling back to Gemini...")
+                    r = await gemini_chat(gemini_key, messages, system_prompt=system)
+                    if r.status_code == 200:
+                        data = r.json()
+                        text = data["candidates"][0]["content"]["parts"][0]["text"]
+                        return {"reply": text}
+                if r.status_code == 401:
+                    return {"reply": "API key issue. Please check your NVIDIA API key."}
+                if r.status_code == 429:
+                    return {"reply": "I'm getting a lot of questions right now! Please wait a moment and try again."}
+                return {"reply": "Sorry, I couldn't process that right now. Please try again."}
 
-        data = r.json()
-        text = data["choices"][0]["message"]["content"]
-        return {"reply": text}
+            data = r.json()
+            text = data["choices"][0]["message"]["content"]
+            return {"reply": text}
+
+        elif provider == "gemini":
+            r = await gemini_chat(key, messages, system_prompt=system)
+            if r.status_code != 200:
+                print(f"Gemini error {r.status_code}: {r.text[:500]}")
+                return {"reply": "Sorry, I couldn't process that right now. Please try again."}
+            data = r.json()
+            text = data["candidates"][0]["content"]["parts"][0]["text"]
+            return {"reply": text}
+
     except httpx.TimeoutException:
         return {"reply": "The AI took too long to respond. Please try a shorter question."}
     except Exception as e:
@@ -148,7 +217,7 @@ FALLBACK_MEALS = {
 
 @router.post("/meal-plan")
 async def ai_meal_plan(req: MealRequest):
-    key = get_nvidia_key()
+    provider, key = get_ai_provider()
     if not key:
         return FALLBACK_MEALS
 
@@ -164,17 +233,40 @@ async def ai_meal_plan(req: MealRequest):
         prefs=f"Preferences: {req.preferences}" if req.preferences else ""
     )
 
-    messages = [{"role": "user", "content": prompt}]
-    system = "You are a nutritionist. Return ONLY valid JSON, no markdown, no explanation."
-
     try:
-        r = await nvidia_request(key, messages, system_prompt=system, max_tokens=800, temperature=0.8)
-        if r.status_code != 200:
-            print(f"NVIDIA meal error: {r.status_code} {r.text[:200]}")
-            return FALLBACK_MEALS
+        if provider == "nvidia":
+            messages = [{"role": "user", "content": prompt}]
+            system = "You are a nutritionist. Return ONLY valid JSON, no markdown, no explanation."
+            r = await nvidia_request(key, messages, system_prompt=system, max_tokens=800, temperature=0.8)
+            if r.status_code != 200:
+                # Try Gemini fallback
+                gemini_key = get_gemini_key()
+                if gemini_key:
+                    r = await gemini_chat(gemini_key, [{"role": "user", "content": prompt}],
+                                          system_prompt=system, max_tokens=800, temperature=0.8)
+                    if r.status_code == 200:
+                        data = r.json()
+                        text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                        if text.startswith("```"):
+                            text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+                        meal_plan = json.loads(text)
+                        _cache[cache_key] = (time.time(), meal_plan)
+                        return meal_plan
+                print(f"NVIDIA meal error: {r.status_code} {r.text[:200]}")
+                return FALLBACK_MEALS
 
-        data = r.json()
-        text = data["choices"][0]["message"]["content"].strip()
+            data = r.json()
+            text = data["choices"][0]["message"]["content"].strip()
+
+        elif provider == "gemini":
+            system = "You are a nutritionist. Return ONLY valid JSON, no markdown, no explanation."
+            r = await gemini_chat(key, [{"role": "user", "content": prompt}],
+                                  system_prompt=system, max_tokens=800, temperature=0.8)
+            if r.status_code != 200:
+                print(f"Gemini meal error: {r.status_code} {r.text[:200]}")
+                return FALLBACK_MEALS
+            data = r.json()
+            text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
 
         # Strip markdown code fences if present
         if text.startswith("```"):
@@ -186,3 +278,19 @@ async def ai_meal_plan(req: MealRequest):
     except Exception as e:
         print(f"Meal plan error: {type(e).__name__}: {e}")
         return FALLBACK_MEALS
+
+
+# ─── Debug/Status endpoint ──────────────────────────────────────────
+
+@router.get("/status")
+async def ai_status():
+    """Check which AI provider is configured."""
+    nvidia = bool(get_nvidia_key())
+    gemini = bool(get_gemini_key())
+    return {
+        "nvidia_configured": nvidia,
+        "gemini_configured": gemini,
+        "active_provider": "nvidia" if nvidia else ("gemini" if gemini else "none"),
+        "status": "ready" if (nvidia or gemini) else "no_api_key",
+    }
+

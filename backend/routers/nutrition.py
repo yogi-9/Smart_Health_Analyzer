@@ -17,8 +17,6 @@ class NutritionLogInput(BaseModel):
     protein: Optional[float] = 0
     carbs: Optional[float] = 0
     fat: Optional[float] = 0
-    fiber: Optional[float] = 0
-    meal_time: Optional[str] = None
     date: Optional[str] = None
 
 
@@ -39,7 +37,6 @@ def log_meal(data: NutritionLogInput):
             "protein": data.protein,
             "carbs": data.carbs,
             "fat": data.fat,
-            "fiber": data.fiber,
             "log_date": log_date,
         }
         # Remove None values

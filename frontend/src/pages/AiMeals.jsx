@@ -119,7 +119,11 @@ export default function AiMeals() {
     await generatePlan()
   }
 
+  const [addingMeal, setAddingMeal] = useState({})
+
   const addToFoodLog = async (mealType, meal) => {
+    if (addingMeal[mealType]) return
+    setAddingMeal(prev => ({ ...prev, [mealType]: true }))
     try {
       await logMeal({
         meal_type: mealType === 'snacks' ? 'snack' : mealType,
@@ -133,7 +137,15 @@ export default function AiMeals() {
       })
       showToast('Added to your food diary! ✅')
     } catch (e) {
-      showToast('Failed to add — try again', 'error')
+      console.error('Add to food log error:', e?.response?.data || e)
+      const detail = e?.response?.data?.detail || ''
+      if (detail.includes('fiber') || detail.includes('column')) {
+        showToast('Database schema issue — please contact support', 'error')
+      } else {
+        showToast('Failed to add — try again', 'error')
+      }
+    } finally {
+      setAddingMeal(prev => ({ ...prev, [mealType]: false }))
     }
   }
 
@@ -227,9 +239,11 @@ export default function AiMeals() {
                   <span className="text-xs text-[#4A5480] font-dm">⏱ {meal.prep_time}</span>
                 )}
                 <button type="button" onClick={() => addToFoodLog(key, meal)}
+                  disabled={addingMeal[key]}
                   className="px-3 py-1.5 rounded-lg bg-[#00E5C3]/10 border border-[#00E5C3]/20
-                    text-xs text-[#00E5C3] font-dm font-medium hover:bg-[#00E5C3]/20 transition-colors">
-                  + Add to Food Log
+                    text-xs text-[#00E5C3] font-dm font-medium hover:bg-[#00E5C3]/20 transition-colors
+                    disabled:opacity-40 disabled:cursor-not-allowed">
+                  {addingMeal[key] ? 'Adding...' : '+ Add to Food Log'}
                 </button>
               </div>
             </div>
