@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import { getHealthHistory, getTodayWater, getStreaks } from '../api'
 import BottomNav from '../components/BottomNav'
 
@@ -11,8 +12,10 @@ export default function AiCoach() {
   const [typing, setTyping] = useState(false)
   const [userContext, setUserContext] = useState('')
   const [showChips, setShowChips] = useState(true)
+  const [loadingHistory, setLoadingHistory] = useState(true)
   const messagesEndRef = useRef(null)
   const chatRef = useRef(null)
+  const historyLoadedRef = useRef(false)
 
   const CHIPS = [
     "What's my health risk?",
@@ -21,11 +24,41 @@ export default function AiCoach() {
     "How can I improve my score?"
   ]
 
-  // Fetch user health context on mount
+  // ─── Load chat history + health context on mount ─────────────────
   useEffect(() => {
     if (!user) return
+    loadChatHistory()
     buildContext()
   }, [user])
+
+  const loadChatHistory = async () => {
+    if (historyLoadedRef.current) return
+    historyLoadedRef.current = true
+    setLoadingHistory(true)
+
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('role, content, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(100)
+
+      if (!error && data && data.length > 0) {
+        const loaded = data.map(m => ({
+          role: m.role,
+          text: m.content,
+          timestamp: m.created_at,
+        }))
+        setMessages(loaded)
+        setShowChips(false)
+      }
+    } catch (e) {
+      console.warn('Failed to load chat history:', e)
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
 
   const buildContext = async () => {
     try {
@@ -56,17 +89,37 @@ export default function AiCoach() {
       }
       setUserContext(ctx)
 
-      // Welcome message
-      setMessages([{
-        role: 'ai',
-        text: latest
-          ? `Hi! 👋 I can see your latest risk score is **${latest.risk_score}/100** (${latest.risk_level}). Ask me anything about your health — I'm here to help!`
-          : "Hi! 👋 I'm your **AI Health Coach**. Run a health check first, or ask me anything about healthy living!"
-      }])
+      // Only add welcome message if no history was loaded
+      setMessages(prev => {
+        if (prev.length > 0) return prev
+        return [{
+          role: 'ai',
+          text: latest
+            ? `Hi! 👋 I can see your latest risk score is **${latest.risk_score}/100** (${latest.risk_level}). Ask me anything about your health — I'm here to help!`
+            : "Hi! 👋 I'm your **AI Health Coach**. Run a health check first, or ask me anything about healthy living!"
+        }]
+      })
     } catch (e) {
-      setMessages([{ role: 'ai', text: "Hi! 👋 I'm your **AI Health Coach**. Ask me anything about health and wellness!" }])
+      setMessages(prev => {
+        if (prev.length > 0) return prev
+        return [{ role: 'ai', text: "Hi! 👋 I'm your **AI Health Coach**. Ask me anything about health and wellness!" }]
+      })
     }
   }
+
+  // ─── Save message to Supabase ────────────────────────────────────
+  const saveMessage = useCallback(async (role, content) => {
+    if (!user) return
+    try {
+      await supabase.from('chat_messages').insert({
+        user_id: user.id,
+        role,
+        content,
+      })
+    } catch (e) {
+      console.warn('Failed to save message:', e)
+    }
+  }, [user])
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -93,6 +146,9 @@ Be concise but well-structured. Every response should be easy to scan and read.`
     setShowChips(false)
     setTyping(true)
 
+    // Save user message to Supabase
+    saveMessage('user', text.trim())
+
     try {
       // Build recent conversation history (last 10)
       const recentMsgs = [...messages.slice(-10), userMsg].map(m => ({
@@ -109,15 +165,31 @@ Be concise but well-structured. Every response should be easy to scan and read.`
 
       const aiText = res.data?.reply || "I couldn't generate a response. Please try again."
       setMessages(prev => [...prev, { role: 'ai', text: aiText }])
+
+      // Save AI response to Supabase
+      saveMessage('ai', aiText)
     } catch (e) {
       console.error('AI Coach error:', e)
-      setMessages(prev => [...prev, {
-        role: 'ai',
-        text: "Oops, something went wrong. Please check your internet connection and try again."
-      }])
+      const errorMsg = "Oops, something went wrong. Please check your internet connection and try again."
+      setMessages(prev => [...prev, { role: 'ai', text: errorMsg }])
     } finally {
       setTyping(false)
     }
+  }
+
+  const clearChat = async () => {
+    if (!user) return
+    // Delete from Supabase
+    try {
+      await supabase.from('chat_messages').delete().eq('user_id', user.id)
+    } catch (e) {
+      console.warn('Failed to clear chat history:', e)
+    }
+    // Reset local state
+    historyLoadedRef.current = false
+    setMessages([])
+    setShowChips(true)
+    buildContext()
   }
 
   const handleKeyDown = (e) => {
@@ -125,6 +197,27 @@ Be concise but well-structured. Every response should be easy to scan and read.`
       e.preventDefault()
       sendMessage(input)
     }
+  }
+
+  // ─── Date separator helper ───────────────────────────────────────
+  const getDateLabel = (timestamp) => {
+    if (!timestamp) return null
+    const date = new Date(timestamp)
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    if (date.toDateString() === today.toDateString()) return 'Today'
+    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
+    return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
+
+  const shouldShowDate = (msg, i) => {
+    if (!msg.timestamp) return false
+    if (i === 0) return true
+    const prev = messages[i - 1]
+    if (!prev.timestamp) return true
+    return new Date(msg.timestamp).toDateString() !== new Date(prev.timestamp).toDateString()
   }
 
   return (
@@ -141,6 +234,19 @@ Be concise but well-structured. Every response should be easy to scan and read.`
             <span className="text-xs text-[#00E5C3] font-dm">Online</span>
           </div>
         </div>
+        {/* Clear chat button */}
+        {messages.length > 1 && (
+          <button type="button" onClick={clearChat}
+            className="px-3 py-1.5 rounded-lg border border-white/[0.06] text-xs text-[#4A5480] font-dm
+              hover:border-[#FF3D5A]/30 hover:text-[#FF3D5A] transition-colors"
+            title="Clear chat history">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline mr-1">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Disclaimer */}
@@ -152,25 +258,52 @@ Be concise but well-structured. Every response should be easy to scan and read.`
 
       {/* Chat area */}
       <div ref={chatRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        {/* Loading skeleton */}
+        {loadingHistory && (
+          <div className="space-y-3 animate-fadeIn">
+            {[1, 2, 3].map(i => (
+              <div key={i} className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
+                <div className={`skeleton-shimmer rounded-2xl ${i % 2 === 0
+                  ? 'w-40 h-10'
+                  : 'w-64 h-16'
+                }`} />
+              </div>
+            ))}
+          </div>
+        )}
+
         {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
-            {msg.role === 'ai' && (
-              <div className="w-7 h-7 rounded-full bg-[#00E5C3]/10 flex items-center justify-center mr-2 flex-shrink-0 mt-1">
-                <span className="text-xs">🤖</span>
+          <div key={i}>
+            {/* Date separator */}
+            {shouldShowDate(msg, i) && (
+              <div className="flex items-center justify-center my-4">
+                <div className="h-px flex-1 bg-white/[0.04]" />
+                <span className="px-3 text-[10px] text-[#4A5480] font-dm uppercase tracking-wider">
+                  {getDateLabel(msg.timestamp)}
+                </span>
+                <div className="h-px flex-1 bg-white/[0.04]" />
               </div>
             )}
-            <div className={`max-w-[85%] rounded-2xl text-sm font-dm leading-relaxed ${
-              msg.role === 'user'
-                ? 'bg-[#00E5C3] text-[#0B0E1A] rounded-br-md px-4 py-3'
-                : 'bg-[#12172B] border border-white/[0.06] text-[#F0F2FF] rounded-bl-md px-5 py-4'
-            }`}>
-              {msg.role === 'ai' ? (
-                <div className="ai-markdown">
-                  <ReactMarkdown>{msg.text}</ReactMarkdown>
+
+            <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
+              {msg.role === 'ai' && (
+                <div className="w-7 h-7 rounded-full bg-[#00E5C3]/10 flex items-center justify-center mr-2 flex-shrink-0 mt-1">
+                  <span className="text-xs">🤖</span>
                 </div>
-              ) : (
-                msg.text
               )}
+              <div className={`max-w-[85%] rounded-2xl text-sm font-dm leading-relaxed ${
+                msg.role === 'user'
+                  ? 'bg-[#00E5C3] text-[#0B0E1A] rounded-br-md px-4 py-3'
+                  : 'bg-[#12172B] border border-white/[0.06] text-[#F0F2FF] rounded-bl-md px-5 py-4'
+              }`}>
+                {msg.role === 'ai' ? (
+                  <div className="ai-markdown">
+                    <ReactMarkdown>{msg.text}</ReactMarkdown>
+                  </div>
+                ) : (
+                  msg.text
+                )}
+              </div>
             </div>
           </div>
         ))}
