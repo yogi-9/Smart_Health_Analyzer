@@ -137,7 +137,7 @@ export default function AiMeals() {
       }
     } catch (e) {
       console.error('Add to food log error:', e)
-      const msg = e?.response?.data?.detail || e?.message || 'Unknown error'
+      const msg = e?.response?.data?.detail || e?.message || 'Please try again.'
       showToast(`Failed to add: ${msg}`, 'error')
     }
   }
