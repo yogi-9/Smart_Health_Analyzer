@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { useAuth } from '../context/AuthContext'
 import { getHealthHistory, getTodayWater, getStreaks } from '../api'
 import BottomNav from '../components/BottomNav'
@@ -53,18 +54,17 @@ export default function AiCoach() {
       if (streak) {
         ctx += `- Streak: ${streak.overall_streak || streak.login_streak || 0} days\n`
       }
-      ctx += '\nGive short, friendly, encouraging health advice. Use simple language. Max 3 sentences per response.'
       setUserContext(ctx)
 
       // Welcome message
       setMessages([{
         role: 'ai',
         text: latest
-          ? `Hi! 👋 I can see your latest risk score is ${latest.risk_score}/100 (${latest.risk_level}). Ask me anything about your health — I'm here to help!`
-          : "Hi! 👋 I'm your AI Health Coach. Run a health check first, or ask me anything about healthy living!"
+          ? `Hi! 👋 I can see your latest risk score is **${latest.risk_score}/100** (${latest.risk_level}). Ask me anything about your health — I'm here to help!`
+          : "Hi! 👋 I'm your **AI Health Coach**. Run a health check first, or ask me anything about healthy living!"
       }])
     } catch (e) {
-      setMessages([{ role: 'ai', text: "Hi! 👋 I'm your AI Health Coach. Ask me anything about health and wellness!" }])
+      setMessages([{ role: 'ai', text: "Hi! 👋 I'm your **AI Health Coach**. Ask me anything about health and wellness!" }])
     }
   }
 
@@ -72,6 +72,18 @@ export default function AiCoach() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, typing])
+
+  const SYSTEM_PROMPT = `You are a friendly, knowledgeable AI health coach. Format your responses using clean markdown:
+
+- Use **bold** for key terms and important values
+- Use bullet points (- ) for lists of tips, foods, or steps
+- Use numbered lists (1. 2. 3.) for sequential steps or ranked items
+- Use headings (## or ###) to organize longer answers into sections
+- Keep paragraphs short (2-3 sentences max)
+- Use > blockquotes for important warnings or key takeaways
+- Use emojis sparingly for warmth (💧🏃‍♂️🥗❤️)
+
+Be concise but well-structured. Every response should be easy to scan and read.`
 
   const sendMessage = async (text) => {
     if (!text.trim() || typing) return
@@ -91,6 +103,7 @@ export default function AiCoach() {
       const { default: API } = await import('../api')
       const res = await API.post('/ai/chat', {
         messages: recentMsgs,
+        system_prompt: SYSTEM_PROMPT,
         user_context: userContext,
       })
 
@@ -146,12 +159,18 @@ export default function AiCoach() {
                 <span className="text-xs">🤖</span>
               </div>
             )}
-            <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm font-dm leading-relaxed ${
+            <div className={`max-w-[85%] rounded-2xl text-sm font-dm leading-relaxed ${
               msg.role === 'user'
-                ? 'bg-[#00E5C3] text-[#0B0E1A] rounded-br-md'
-                : 'bg-[#12172B] border border-white/[0.06] text-[#F0F2FF] rounded-bl-md'
+                ? 'bg-[#00E5C3] text-[#0B0E1A] rounded-br-md px-4 py-3'
+                : 'bg-[#12172B] border border-white/[0.06] text-[#F0F2FF] rounded-bl-md px-5 py-4'
             }`}>
-              {msg.text}
+              {msg.role === 'ai' ? (
+                <div className="ai-markdown">
+                  <ReactMarkdown>{msg.text}</ReactMarkdown>
+                </div>
+              ) : (
+                msg.text
+              )}
             </div>
           </div>
         ))}
