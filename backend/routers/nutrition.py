@@ -8,7 +8,7 @@ router = APIRouter(prefix="/nutrition", tags=["nutrition"])
 
 
 class NutritionLogInput(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore unknown fields like meal_time
+    model_config = ConfigDict(extra="ignore")  # Ignore unknown fields
 
     user_id: str
     meal_type: str
@@ -68,11 +68,12 @@ def get_logs(user_id: str, log_date: Optional[str] = None):
             .select("*")
             .eq("user_id", user_id)
             .eq("log_date", query_date)
-            .order("created_at", desc=False)
+            .order("logged_at", desc=False)
             .execute()
         )
         return {"success": True, "data": result.data}
     except Exception as e:
+        print(f"Nutrition logs fetch error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -101,6 +102,7 @@ def get_summary(user_id: str, log_date: Optional[str] = None):
         }
         return {"success": True, "data": [summary] if logs else []}
     except Exception as e:
+        print(f"Nutrition summary error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 

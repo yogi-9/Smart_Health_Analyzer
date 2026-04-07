@@ -406,20 +406,23 @@ export default function Analyze() {
         {label}
       </label>
       <div className="flex gap-3">
-        {options.map(opt => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => updateField(field, opt.value)}
-            className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-              Number(formData[field]) === opt.value
-                ? 'bg-[#00E5C3] text-[#0B0E1A]'
-                : 'bg-[#1A2040] text-[#8892B0] hover:text-[#F0F2FF] border border-white/[0.06]'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
+        {options.map(opt => {
+          const isSelected = formData[field] !== '' && formData[field] !== null && formData[field] !== undefined && Number(formData[field]) === opt.value
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => updateField(field, opt.value)}
+              className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                isSelected
+                  ? 'bg-[#00E5C3] text-[#0B0E1A]'
+                  : 'bg-[#1A2040] text-[#8892B0] hover:text-[#F0F2FF] border border-white/[0.06]'
+              }`}
+            >
+              {opt.label}
+            </button>
+          )
+        })}
       </div>
       {errors[field] && (
         <p className="text-[#FF3D5A] text-xs mt-1.5 font-dm animate-fadeIn">{errors[field]}</p>
@@ -451,27 +454,27 @@ export default function Analyze() {
             </p>
           </div>
 
-          {/* Stats summary */}
+          {/* BMI — the only accurately calculated stat */}
           {(() => {
-            const est = estimateMedicalValues(formData)
             const bmi = (Number(formData.weight) / ((Number(formData.height) / 100) ** 2)).toFixed(1)
+            const bmiCategory = bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Normal' : bmi < 30 ? 'Overweight' : 'Obese'
+            const bmiColor = bmi < 18.5 ? '#FFB830' : bmi < 25 ? '#00E5C3' : bmi < 30 ? '#FFB830' : '#FF3D5A'
             return (
-              <div className="glass-card p-6">
-                <h2 className="font-syne font-bold text-lg text-[#F0F2FF] mb-4">Your Estimated Stats</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {[
-                    { label: 'BMI', value: bmi },
-                    { label: 'Est. BP', value: `${est.systolic_bp}/${est.diastolic_bp}` },
-                    { label: 'Est. Cholesterol', value: est.cholesterol },
-                    { label: 'Est. Glucose', value: est.glucose },
-                  ].map(s => (
-                    <div key={s.label}>
-                      <p className="text-xs text-[#4A5480] mb-1 font-dm">{s.label}</p>
-                      <p className="text-lg font-bold font-mono text-[#F0F2FF]">{s.value}</p>
-                    </div>
-                  ))}
+              <div className="glass-card p-6 flex items-center gap-6">
+                <div>
+                  <p className="text-xs text-[#4A5480] mb-1 font-dm">Your BMI</p>
+                  <p className="text-4xl font-bold font-mono" style={{ color: bmiColor }}>{bmi}</p>
+                  <p className="text-sm font-medium mt-1" style={{ color: bmiColor }}>{bmiCategory}</p>
                 </div>
-                <p className="text-[10px] text-[#4A5480] mt-3 font-dm">Values estimated from your age, BMI, and lifestyle answers</p>
+                <div className="flex-1 h-3 bg-[#1A2040] rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${Math.min((bmi / 40) * 100, 100)}%`,
+                      backgroundColor: bmiColor,
+                    }}
+                  />
+                </div>
               </div>
             )
           })()}
@@ -631,8 +634,6 @@ export default function Analyze() {
           <div className="space-y-3">
             {[
               { to: '/analyze/mental', title: 'Mental Health Check', desc: 'PHQ-9 + GAD-7 questionnaire', dot: 'bg-[#7B61FF]' },
-              { to: '/analyze/diabetes', title: 'Diabetes Risk', desc: 'ML prediction based on glucose & BMI', dot: 'bg-[#00E5C3]' },
-              { to: '/analyze/heart', title: 'Heart Disease Risk', desc: 'Blood pressure & cholesterol analysis', dot: 'bg-[#FF3D5A]' },
             ].map(m => (
               <Link
                 key={m.to}

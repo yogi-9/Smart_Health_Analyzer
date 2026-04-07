@@ -13,8 +13,7 @@ const ProfileSetup = lazy(() => import('./pages/ProfileSetup'))
 const Nutrition = lazy(() => import('./pages/Nutrition'))
 const Water = lazy(() => import('./pages/Water'))
 const MentalHealth = lazy(() => import('./pages/MentalHealth'))
-const Diabetes = lazy(() => import('./pages/Diabetes'))
-const Heart = lazy(() => import('./pages/Heart'))
+
 const History = lazy(() => import('./pages/History'))
 const Profile = lazy(() => import('./pages/Profile'))
 const Results = lazy(() => import('./pages/Results'))
@@ -60,8 +59,7 @@ export default function AppRoutes() {
         <Route path="/water" element={<ProtectedRoute><Water /></ProtectedRoute>} />
         <Route path="/analyze" element={<ProtectedRoute><Analyze /></ProtectedRoute>} />
         <Route path="/analyze/mental" element={<ProtectedRoute><MentalHealth /></ProtectedRoute>} />
-        <Route path="/analyze/diabetes" element={<ProtectedRoute><Diabetes /></ProtectedRoute>} />
-        <Route path="/analyze/heart" element={<ProtectedRoute><Heart /></ProtectedRoute>} />
+
         <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />

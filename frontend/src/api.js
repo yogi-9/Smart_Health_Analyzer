@@ -16,15 +16,6 @@ export const analyzeMentalHealth = async (answers) => {
   return API.post('/mental/analyze', { ...answers, user_id })
 }
 
-export const predictDiabetes = async (data) => {
-  const user_id = await getUserId()
-  return API.post('/diabetes/predict', { ...data, user_id })
-}
-
-export const predictHeart = async (data) => {
-  const user_id = await getUserId()
-  return API.post('/heart/predict', { ...data, user_id })
-}
 
 export const getHealthHistory = async (userId) => {
   const { data, error } = await supabase

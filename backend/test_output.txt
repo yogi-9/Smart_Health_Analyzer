@@ -1,0 +1,22 @@
+﻿Supabase client connected
+user_id: 8d509cda-44d8-4add-9220-33fbe57e0d1e
+today: 2026-04-07
+today count: 11
+  - Roti (1 piece) (120 kcal)
+  - Upma (1 bowl) (200 kcal)
+  - Vegetable Upma (350 kcal)
+  - Vegetable Upma (350 kcal)
+  - Vegetable Upma (350 kcal)
+  - Roti (1 piece) (120 kcal)
+  - Rice (1 cup) (206 kcal)
+  - Sprouts Salad (200 kcal)
+  - Vegetable Roti with Moong Dal (450 kcal)
+  - Rice (1 cup) (206 kcal)
+  - Test Food (200 kcal)
+
+All recent logs:
+  - [2026-04-07] Test Food (200 kcal)
+  - [2026-04-07] Rice (1 cup) (206 kcal)
+  - [2026-04-07] Vegetable Roti with Moong Dal (450 kcal)
+  - [2026-04-07] Sprouts Salad (200 kcal)
+  - [2026-04-07] Rice (1 cup) (206 kcal)

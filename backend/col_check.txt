@@ -1,0 +1,15 @@
+id = 2e3711a0-f8bf-4319-bc1c-b656835acb7d
+user_id = 8d509cda-44d8-4add-9220-33fbe57e0d1e
+meal_type = lunch
+food_name = Dal Chawal with Sabzi
+quantity = 1
+unit = serving
+calories = 520
+protein = 0
+carbs = 0
+fat = 0
+fiber = 0
+meal_time = None
+date = 2026-04-04
+logged_at = 2026-04-04T10:02:51.658331+00:00
+log_date = 2026-04-04
