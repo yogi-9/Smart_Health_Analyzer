@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { getStreaks, getHealthHistory, getWaterHistory, getNutritionLogs } from '../api'
+import { getStreaks, getHealthHistory, getBadges, getHeatmap } from '../api'
 import BottomNav from '../components/BottomNav'
 
 const BADGES = [
@@ -16,6 +16,7 @@ export default function Streaks() {
   const { user } = useAuth()
   const [streakData, setStreakData] = useState(null)
   const [healthHistory, setHealthHistory] = useState([])
+  const [heatmapData, setHeatmapData] = useState({})
   const [loading, setLoading] = useState(true)
   const [unlockedBadges, setUnlockedBadges] = useState([])
   const [newBadge, setNewBadge] = useState(null)
@@ -27,29 +28,50 @@ export default function Streaks() {
 
   const fetchAll = async () => {
     try {
-      const [streaksRes, healthRes] = await Promise.all([
+      const [streaksRes, healthRes, heatmapRes] = await Promise.all([
         getStreaks().catch(() => ({ data: null })),
         getHealthHistory(user.id).catch(() => ({ data: [] })),
+        getHeatmap().catch(() => ({ data: { heatmap: {} } })),
       ])
-      setStreakData(streaksRes.data)
+
+      // Parse streaks response — backend returns:
+      // { success, overall_streak, longest_streak, streaks: { login: {current, longest, last_date}, ... }, raw: [...] }
+      const sd = streaksRes.data || {}
+      setStreakData(sd)
       setHealthHistory(healthRes.data || [])
+      
+      // Parse heatmap — backend returns { success, heatmap: { "2026-04-01": 2, ... } }
+      const hm = heatmapRes.data?.heatmap || heatmapRes.data || {}
+      setHeatmapData(hm)
 
-      // Calculate badge unlocks
+      // Calculate badge unlocks from real data
       const unlocked = []
-      const sd = streaksRes.data
       const hh = healthRes.data || []
+      const streaks = sd?.streaks || {}
+      const overallStreak = sd?.overall_streak || 0
 
+      // First Check — at least one health analysis
       if (hh.length >= 1) unlocked.push('first_check')
-      if (sd?.overall_streak >= 7 || sd?.login_streak >= 7) unlocked.push('week_warrior')
-      if (sd?.water_streak >= 7) unlocked.push('hydration_hero')
-      if (sd?.nutrition_streak >= 5 || sd?.food_streak >= 5) unlocked.push('food_tracker')
+      
+      // Week Warrior — overall streak >= 7 or login streak >= 7
+      if (overallStreak >= 7 || (streaks.login?.current || 0) >= 7) unlocked.push('week_warrior')
+      
+      // Hydration Hero — water streak >= 7
+      if ((streaks.water?.current || 0) >= 7) unlocked.push('hydration_hero')
+      
+      // Food Tracker — food streak >= 5
+      if ((streaks.food?.current || 0) >= 5) unlocked.push('food_tracker')
+      
+      // Health Improver — risk score dropped by 10+
       if (hh.length >= 2) {
         const scores = hh.map(h => h.risk_score).filter(Boolean)
-        if (scores.length >= 2 && scores[scores.length - 1] - scores[0] >= 10) {
+        if (scores.length >= 2 && scores[0] - scores[scores.length - 1] >= 10) {
           unlocked.push('health_improver')
         }
       }
-      if (sd?.overall_streak >= 30 || sd?.login_streak >= 30) unlocked.push('month_master')
+      
+      // Month Master — 30-day streak
+      if (overallStreak >= 30 || (streaks.login?.current || 0) >= 30) unlocked.push('month_master')
 
       setUnlockedBadges(unlocked)
     } catch (e) {
@@ -58,6 +80,20 @@ export default function Streaks() {
       setLoading(false)
     }
   }
+
+  // Build heatmap grid from real data (last 84 days = 12 weeks)
+  const heatmapGrid = useMemo(() => {
+    const grid = []
+    const today = new Date()
+    for (let i = 83; i >= 0; i--) {
+      const d = new Date(today)
+      d.setDate(d.getDate() - i)
+      const dateStr = d.toISOString().split('T')[0]
+      const count = heatmapData[dateStr] || 0
+      grid.push({ date: dateStr, count, daysAgo: i })
+    }
+    return grid
+  }, [heatmapData])
 
   if (loading) {
     return (
@@ -70,10 +106,12 @@ export default function Streaks() {
     )
   }
 
-  const overallStreak = streakData?.overall_streak || streakData?.login_streak || 0
-  const waterStreak = streakData?.water_streak || 0
-  const foodStreak = streakData?.nutrition_streak || streakData?.food_streak || 0
-  const healthStreak = streakData?.health_streak || 0
+  // Extract per-type streaks from the response's streaks object
+  const streaks = streakData?.streaks || {}
+  const overallStreak = streakData?.overall_streak || 0
+  const waterStreak = streaks.water?.current || 0
+  const foodStreak = streaks.food?.current || 0
+  const healthStreak = streaks.health?.current || 0
 
   return (
     <div className="min-h-screen bg-[#0B0E1A] pb-24">
@@ -140,23 +178,22 @@ export default function Streaks() {
           </div>
         </div>
 
-        {/* Activity heatmap — simplified grid */}
+        {/* Activity heatmap — uses real data from backend */}
         <div>
           <h2 className="font-syne font-bold text-lg text-[#F0F2FF] mb-4">Activity (Last 12 Weeks)</h2>
           <div className="glass-card p-4">
             <div className="grid gap-[3px]" style={{ gridTemplateColumns: 'repeat(12, 1fr)' }}>
-              {Array.from({ length: 84 }).map((_, i) => {
-                // Simple heatmap — recent days more likely to be active
-                const daysAgo = 83 - i
-                const isActive = healthHistory.length > 0 || overallStreak > 0
-                  ? daysAgo < overallStreak || Math.random() > 0.6
-                  : false
+              {heatmapGrid.map((cell, i) => {
+                const intensity = cell.count > 0
+                  ? Math.min(cell.count / 3, 1) // Normalize: 3+ activities = full intensity
+                  : 0
                 return (
                   <div key={i}
-                    className="aspect-square rounded-[2px] transition-colors"
+                    title={`${cell.date}: ${cell.count} activities`}
+                    className="aspect-square rounded-[2px] transition-colors cursor-default"
                     style={{
-                      backgroundColor: isActive ? '#00E5C3' : '#1A2040',
-                      opacity: isActive ? (daysAgo < 7 ? 1 : daysAgo < 30 ? 0.7 : 0.4) : 1,
+                      backgroundColor: intensity > 0 ? '#00E5C3' : '#1A2040',
+                      opacity: intensity > 0 ? (0.3 + intensity * 0.7) : 1,
                     }}
                   />
                 )

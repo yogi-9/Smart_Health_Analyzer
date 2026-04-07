@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import date, datetime, timedelta
 from database import supabase_client
@@ -8,12 +8,14 @@ router = APIRouter(prefix="/nutrition", tags=["nutrition"])
 
 
 class NutritionLogInput(BaseModel):
+    model_config = ConfigDict(extra="ignore")  # Ignore unknown fields like meal_time
+
     user_id: str
     meal_type: str
     food_name: str
     quantity: Optional[float] = 1
     unit: Optional[str] = "serving"
-    calories: Optional[int] = 0
+    calories: Optional[float] = 0
     protein: Optional[float] = 0
     carbs: Optional[float] = 0
     fat: Optional[float] = 0

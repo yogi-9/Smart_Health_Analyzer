@@ -120,29 +120,37 @@ export default function AiMeals() {
   }
 
   const [addingMeal, setAddingMeal] = useState({})
+  const [addedMeals, setAddedMeals] = useState({})
 
   const addToFoodLog = async (mealType, meal) => {
     if (addingMeal[mealType]) return
     setAddingMeal(prev => ({ ...prev, [mealType]: true }))
     try {
+      // Estimate macros from calories if not provided
+      const cals = meal.calories || 0
+      const protein = meal.protein || Math.round(cals * 0.25 / 4) // ~25% from protein
+      const carbs = meal.carbs || Math.round(cals * 0.50 / 4)     // ~50% from carbs
+      const fat = meal.fat || Math.round(cals * 0.25 / 9)         // ~25% from fat
+
       await logMeal({
         meal_type: mealType === 'snacks' ? 'snack' : mealType,
         food_name: meal.name,
-        calories: meal.calories || 0,
-        protein: 0,
-        carbs: 0,
-        fat: 0,
+        calories: cals,
+        protein,
+        carbs,
+        fat,
         quantity: 1,
         unit: 'serving',
       })
-      showToast('Added to your food diary! ✅')
+      setAddedMeals(prev => ({ ...prev, [mealType]: true }))
+      showToast(`Added "${meal.name}" to your food diary! ✅`)
     } catch (e) {
       console.error('Add to food log error:', e?.response?.data || e)
-      const detail = e?.response?.data?.detail || ''
-      if (detail.includes('fiber') || detail.includes('column')) {
+      const detail = e?.response?.data?.detail || e?.message || ''
+      if (detail.includes('column') || detail.includes('schema')) {
         showToast('Database schema issue — please contact support', 'error')
       } else {
-        showToast('Failed to add — try again', 'error')
+        showToast(`Failed to add — ${detail || 'try again'}`, 'error')
       }
     } finally {
       setAddingMeal(prev => ({ ...prev, [mealType]: false }))
@@ -239,11 +247,14 @@ export default function AiMeals() {
                   <span className="text-xs text-[#4A5480] font-dm">⏱ {meal.prep_time}</span>
                 )}
                 <button type="button" onClick={() => addToFoodLog(key, meal)}
-                  disabled={addingMeal[key]}
-                  className="px-3 py-1.5 rounded-lg bg-[#00E5C3]/10 border border-[#00E5C3]/20
-                    text-xs text-[#00E5C3] font-dm font-medium hover:bg-[#00E5C3]/20 transition-colors
-                    disabled:opacity-40 disabled:cursor-not-allowed">
-                  {addingMeal[key] ? 'Adding...' : '+ Add to Food Log'}
+                  disabled={addingMeal[key] || addedMeals[key]}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-dm font-medium transition-colors
+                    disabled:cursor-not-allowed ${
+                      addedMeals[key]
+                        ? 'bg-[#00E5C3]/20 border-[#00E5C3]/40 text-[#00E5C3]'
+                        : 'bg-[#00E5C3]/10 border-[#00E5C3]/20 text-[#00E5C3] hover:bg-[#00E5C3]/20 disabled:opacity-40'
+                    }`}>
+                  {addedMeals[key] ? '✓ Added' : addingMeal[key] ? 'Adding...' : '+ Add to Food Log'}
                 </button>
               </div>
             </div>

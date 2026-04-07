@@ -45,6 +45,7 @@ export default function Nutrition() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [addMealType, setAddMealType] = useState('breakfast')
   const [searchQuery, setSearchQuery] = useState('')
+  const [toast, setToast] = useState(null)
   const [form, setForm] = useState({
     meal_type: 'breakfast',
     food_name: '',
@@ -54,7 +55,6 @@ export default function Nutrition() {
     fat: '',
     quantity: 1,
     unit: 'serving',
-    meal_time: '',
   })
 
   useEffect(() => {
@@ -62,16 +62,30 @@ export default function Nutrition() {
     if (user) fetchData()
   }, [user, loading])
 
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 3000)
+  }
+
   const fetchData = async () => {
     try {
       const [logsRes, summaryRes] = await Promise.all([
         getNutritionLogs(),
         getNutritionSummary(),
       ])
-      setLogs(logsRes.data.data || [])
-      setSummary(summaryRes.data.data?.[0] || null)
+      // Backend returns { success: true, data: [...] }
+      // Axios wraps it in .data, so logsRes.data = { success, data }
+      const logsData = logsRes.data?.data || logsRes.data || []
+      setLogs(Array.isArray(logsData) ? logsData : [])
+
+      const summaryData = summaryRes.data?.data || summaryRes.data || []
+      const summaryItem = Array.isArray(summaryData) ? summaryData[0] : summaryData
+      setSummary(summaryItem || null)
     } catch (e) {
-      console.error(e)
+      console.error('Nutrition fetch error:', e)
+      // Don't crash — just show empty state
+      setLogs([])
+      setSummary(null)
     } finally {
       setIsLoading(false)
     }
@@ -90,13 +104,19 @@ export default function Nutrition() {
         fat: Number(form.fat) || 0,
         quantity: Number(form.quantity) || 1,
         unit: form.unit,
-        meal_time: form.meal_time || null,
       })
-      setForm({ meal_type: form.meal_type, food_name: '', calories: '', protein: '', carbs: '', fat: '', quantity: 1, unit: 'serving', meal_time: '' })
+      setForm({ meal_type: form.meal_type, food_name: '', calories: '', protein: '', carbs: '', fat: '', quantity: 1, unit: 'serving' })
       setShowAddModal(false)
-      fetchData()
+      showToast(`Added "${form.food_name}" to ${MEAL_LABEL[form.meal_type]}! ✅`)
+      await fetchData()
     } catch (e) {
-      console.error(e)
+      console.error('Add meal error:', e?.response?.data || e)
+      const detail = e?.response?.data?.detail || e?.message || ''
+      if (detail.includes('column') || detail.includes('schema')) {
+        showToast('Database schema issue — contact support', 'error')
+      } else {
+        showToast(`Failed to add food: ${detail || 'Try again'}`, 'error')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -152,6 +172,17 @@ export default function Nutrition() {
 
   return (
     <div className="min-h-screen bg-[#0B0E1A] pb-24">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl border text-sm font-dm animate-fadeIn ${
+          toast.type === 'error'
+            ? 'bg-[#FF3D5A]/10 border-[#FF3D5A]/30 text-[#FF3D5A]'
+            : 'bg-[#00E5C3]/10 border-[#00E5C3]/30 text-[#00E5C3]'
+        }`}>
+          {toast.msg}
+        </div>
+      )}
+
       {/* Header */}
       <div className="px-6 py-5 border-b border-white/[0.06]">
         <div className="flex items-center justify-between">
@@ -159,9 +190,14 @@ export default function Nutrition() {
             <h1 className="font-syne font-bold text-xl text-[#F0F2FF]">Food Logger</h1>
             <p className="text-sm text-[#8892B0] mt-0.5 font-dm">Track your meals today</p>
           </div>
-          <Link to="/dashboard" className="text-xs text-[#00E5C3] hover:underline font-dm">
-            Dashboard
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link to="/ai-meals" className="px-3 py-1.5 rounded-xl border border-[#7B61FF]/30 text-[#7B61FF] text-xs font-dm font-medium hover:bg-[#7B61FF]/10 transition-colors">
+              🤖 AI Meals
+            </Link>
+            <Link to="/dashboard" className="text-xs text-[#00E5C3] hover:underline font-dm">
+              Dashboard
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -198,9 +234,9 @@ export default function Nutrition() {
           {summary && (
             <div className="grid grid-cols-3 gap-4 mt-4 w-full max-w-xs">
               {[
-                { label: 'Protein', val: `${summary.total_protein || 0}g`, color: '#00E5C3' },
-                { label: 'Carbs', val: `${summary.total_carbs || 0}g`, color: '#7B61FF' },
-                { label: 'Fat', val: `${summary.total_fat || 0}g`, color: '#FFB830' },
+                { label: 'Protein', val: `${Math.round(summary.total_protein || 0)}g`, color: '#00E5C3' },
+                { label: 'Carbs', val: `${Math.round(summary.total_carbs || 0)}g`, color: '#7B61FF' },
+                { label: 'Fat', val: `${Math.round(summary.total_fat || 0)}g`, color: '#FFB830' },
               ].map(m => (
                 <div key={m.label} className="text-center">
                   <p className="text-xs text-[#4A5480] font-dm">{m.label}</p>
@@ -253,7 +289,11 @@ export default function Nutrition() {
                         <div key={log.id} className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-0">
                           <div>
                             <p className="text-sm text-[#F0F2FF] font-dm">{log.food_name}</p>
-                            {log.meal_time && <p className="text-xs text-[#4A5480]">{log.meal_time}</p>}
+                            <p className="text-xs text-[#4A5480]">
+                              {log.protein ? `P: ${log.protein}g` : ''} 
+                              {log.carbs ? ` C: ${log.carbs}g` : ''} 
+                              {log.fat ? ` F: ${log.fat}g` : ''}
+                            </p>
                           </div>
                           <span className="font-mono text-sm font-bold text-[#8892B0]">{log.calories} kcal</span>
                         </div>
