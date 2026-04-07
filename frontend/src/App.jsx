@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { to: '/streaks', label: 'Streaks', emoji: '🔥' },
   { to: '/ai-coach', label: 'AI Coach', emoji: '🤖' },
   { to: '/ai-meals', label: 'AI Meals', emoji: '🍽️' },
+  { to: '/calorie-calc', label: 'Calorie Calc', emoji: '⚡' },
 ]
 
 const NAV_BOTTOM = [

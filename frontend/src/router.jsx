@@ -20,6 +20,7 @@ const Results = lazy(() => import('./pages/Results'))
 const Streaks = lazy(() => import('./pages/Streaks'))
 const AiCoach = lazy(() => import('./pages/AiCoach'))
 const AiMeals = lazy(() => import('./pages/AiMeals'))
+const CalorieCalc = lazy(() => import('./pages/CalorieCalc'))
 
 // Lightweight loading spinner for lazy chunks
 function PageLoader() {
@@ -66,6 +67,7 @@ export default function AppRoutes() {
         <Route path="/streaks" element={<ProtectedRoute><Streaks /></ProtectedRoute>} />
         <Route path="/ai-coach" element={<ProtectedRoute><AiCoach /></ProtectedRoute>} />
         <Route path="/ai-meals" element={<ProtectedRoute><AiMeals /></ProtectedRoute>} />
+        <Route path="/calorie-calc" element={<ProtectedRoute><CalorieCalc /></ProtectedRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
