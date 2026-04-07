@@ -127,7 +127,7 @@ export default function AiMeals() {
     setAddingMeal(prev => ({ ...prev, [mealType]: true }))
     try {
       // Estimate macros from calories if not provided
-      const cals = meal.calories || 0
+      const cals = Math.round(meal.calories || 0)
       const protein = meal.protein || Math.round(cals * 0.25 / 4) // ~25% from protein
       const carbs = meal.carbs || Math.round(cals * 0.50 / 4)     // ~50% from carbs
       const fat = meal.fat || Math.round(cals * 0.25 / 9)         // ~25% from fat

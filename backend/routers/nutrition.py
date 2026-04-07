@@ -33,12 +33,12 @@ def log_meal(data: NutritionLogInput):
             "user_id": data.user_id,
             "meal_type": data.meal_type,
             "food_name": data.food_name,
-            "quantity": data.quantity,
+            "quantity": float(data.quantity or 1),
             "unit": data.unit,
-            "calories": data.calories,
-            "protein": data.protein,
-            "carbs": data.carbs,
-            "fat": data.fat,
+            "calories": int(data.calories or 0),
+            "protein": round(float(data.protein or 0), 1),
+            "carbs": round(float(data.carbs or 0), 1),
+            "fat": round(float(data.fat or 0), 1),
             "log_date": log_date,
         }
         # Remove None values

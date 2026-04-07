@@ -94,20 +94,23 @@ export default function Nutrition() {
   const handleSubmit = async () => {
     if (!form.food_name.trim()) return
     setSubmitting(true)
+    const savedName = form.food_name
+    const savedType = form.meal_type
     try {
       await logMeal({
         meal_type: form.meal_type,
         food_name: form.food_name,
-        calories: Number(form.calories) || 0,
+        calories: Math.round(Number(form.calories) || 0),
         protein: Number(form.protein) || 0,
         carbs: Number(form.carbs) || 0,
         fat: Number(form.fat) || 0,
         quantity: Number(form.quantity) || 1,
         unit: form.unit,
       })
-      setForm({ meal_type: form.meal_type, food_name: '', calories: '', protein: '', carbs: '', fat: '', quantity: 1, unit: 'serving' })
+      setForm({ meal_type: savedType, food_name: '', calories: '', protein: '', carbs: '', fat: '', quantity: 1, unit: 'serving' })
       setShowAddModal(false)
-      showToast(`Added "${form.food_name}" to ${MEAL_LABEL[form.meal_type]}! ✅`)
+      setExpandedMeal(savedType)  // Auto-expand the meal section to show the new item
+      showToast(`Added "${savedName}" to ${MEAL_LABEL[savedType]}! ✅`)
       await fetchData()
     } catch (e) {
       console.error('Add meal error:', e?.response?.data || e)
