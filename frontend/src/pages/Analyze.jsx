@@ -633,6 +633,8 @@ export default function Analyze() {
           </h3>
           <div className="space-y-3">
             {[
+              { to: '/analyze/heart', title: 'Heart Disease Risk', desc: 'ML model trained on UCI heart dataset', dot: 'bg-[#FF3D5A]' },
+              { to: '/analyze/diabetes', title: 'Diabetes Risk Check', desc: 'ML model trained on clinical data', dot: 'bg-[#FFB830]' },
               { to: '/analyze/mental', title: 'Mental Health Check', desc: 'PHQ-9 + GAD-7 questionnaire', dot: 'bg-[#7B61FF]' },
             ].map(m => (
               <Link

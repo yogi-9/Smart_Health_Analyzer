@@ -9,6 +9,8 @@ load_dotenv()
 from routes_mental import router as mental_router
 from routes_water import router as water_router
 from routes_ai import router as ai_router
+from routes_diabetes import router as diabetes_router
+from routes_heart import router as heart_router
 from routers import nutrition, streaks
 
 app = FastAPI(
@@ -33,6 +35,8 @@ app.add_middleware(
 app.include_router(mental_router)
 app.include_router(water_router)
 app.include_router(ai_router)
+app.include_router(diabetes_router)
+app.include_router(heart_router)
 app.include_router(nutrition.router)
 app.include_router(streaks.router)
 
@@ -43,7 +47,7 @@ def root():
         "message": "Smart Health Analyzer API is running",
         "status": "ok",
         "version": "2.0.0",
-        "modules": ["mental_health", "nutrition", "water", "ai"]
+        "modules": ["mental_health", "diabetes", "heart", "nutrition", "water", "ai"]
     }
 
 @app.get("/health")
