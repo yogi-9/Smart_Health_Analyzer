@@ -133,7 +133,23 @@ async def ai_chat(req: ChatRequest):
     if not key:
         return {"reply": "I'm currently offline. Please check back later or ask your doctor for advice."}
 
-    system = req.system_prompt or "You are a friendly, supportive health coach. Give short, practical advice. Use simple language. Keep responses under 3 sentences."
+    system = (
+        "You are a friendly, supportive health coach for the Smart Health Analyzer app. "
+        "Your expertise covers: health, nutrition, fitness, wellness, medical conditions, "
+        "mental health, diet, exercise, hydration, sleep, disease prevention, medications, "
+        "prescriptions, home remedies, first aid, and healthy lifestyle tips.\n\n"
+        "IMPORTANT RULES:\n"
+        "1. Since this is a health app, ALWAYS assume the user's question is health-related "
+        "unless it is CLEARLY and OBVIOUSLY about a non-health topic.\n"
+        "2. For vague or short messages like 'help tip', 'give me advice', 'well prescribed', "
+        "'tips please', etc. — treat them as health/wellness questions and provide useful health tips.\n"
+        "3. ONLY decline if the user EXPLICITLY asks about clearly unrelated topics such as: "
+        "writing code, solving math equations, political opinions, movie reviews, sports scores, "
+        "homework help, recipes for non-health purposes, or other obviously non-health subjects.\n"
+        "4. When declining, say: 'I'm your Smart Health Analyzer assistant — I specialize in health, "
+        "nutrition, and wellness topics. Try asking me about diet tips, exercise routines, or health advice!'\n"
+        "5. Give short, practical health advice. Use simple language. Keep responses under 3-4 sentences."
+    )
     if req.user_context:
         system += f"\n\nUser's health data:\n{req.user_context}"
 
@@ -166,7 +182,7 @@ async def ai_chat(req: ChatRequest):
 
     try:
         if provider == "nvidia":
-            r = await nvidia_request(key, messages, system_prompt=system, max_tokens=400, temperature=0.7)
+            r = await nvidia_request(key, messages, system_prompt=system, max_tokens=1024, temperature=0.7)
             if r.status_code != 200:
                 error_text = r.text[:500]
                 print(f"NVIDIA error {r.status_code}: {error_text}")
@@ -174,7 +190,7 @@ async def ai_chat(req: ChatRequest):
                 gemini_key = get_gemini_key()
                 if gemini_key:
                     print("Falling back to Gemini...")
-                    r = await gemini_chat(gemini_key, messages, system_prompt=system)
+                    r = await gemini_chat(gemini_key, messages, system_prompt=system, max_tokens=1024)
                     if r.status_code == 200:
                         data = r.json()
                         text = data["candidates"][0]["content"]["parts"][0]["text"]
@@ -190,7 +206,7 @@ async def ai_chat(req: ChatRequest):
             return {"reply": text}
 
         elif provider == "gemini":
-            r = await gemini_chat(key, messages, system_prompt=system)
+            r = await gemini_chat(key, messages, system_prompt=system, max_tokens=1024)
             if r.status_code != 200:
                 print(f"Gemini error {r.status_code}: {r.text[:500]}")
                 return {"reply": "Sorry, I couldn't process that right now. Please try again."}

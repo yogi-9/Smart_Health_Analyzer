@@ -126,8 +126,16 @@ export default function AiCoach() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, typing])
 
-  const SYSTEM_PROMPT = `You are a friendly, knowledgeable AI health coach. Format your responses using clean markdown:
+  const SYSTEM_PROMPT = `You are a friendly, knowledgeable AI health coach for the Smart Health Analyzer app.
+Your expertise covers: health, nutrition, fitness, wellness, medical conditions, mental health, diet, exercise, hydration, sleep, disease prevention, medications, prescriptions, home remedies, first aid, and healthy lifestyle tips.
 
+IMPORTANT RULES:
+1. Since this is a health app, ALWAYS assume the user's question is health-related unless it is CLEARLY and OBVIOUSLY about a non-health topic.
+2. For vague or short messages like "help tip", "give me advice", "well prescribed", "tips please", etc. — treat them as health/wellness questions and provide useful health tips.
+3. ONLY decline if the user EXPLICITLY asks about clearly unrelated topics such as: writing code, solving math equations, political opinions, movie reviews, sports scores, homework help, or other obviously non-health subjects.
+4. When declining, say: "I'm your Smart Health Analyzer assistant — I specialize in health, nutrition, and wellness topics. Try asking me about diet tips, exercise routines, or health advice!"
+
+Format your responses using clean markdown:
 - Use **bold** for key terms and important values
 - Use bullet points (- ) for lists of tips, foods, or steps
 - Use numbered lists (1. 2. 3.) for sequential steps or ranked items
@@ -348,7 +356,7 @@ Be concise but well-structured. Every response should be easy to scan and read.`
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask me anything..."
+            placeholder="Ask me about health, nutrition, or wellness..."
             className="flex-1 bg-[#12172B] border border-white/[0.06] rounded-xl px-4 py-3
               text-sm text-[#F0F2FF] font-dm placeholder:text-[#4A5480]
               focus:outline-none focus:border-[#00E5C3]/40 transition-colors"
